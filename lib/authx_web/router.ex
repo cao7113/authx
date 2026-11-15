@@ -4,8 +4,6 @@ defmodule AuthxWeb.Router do
   import Oban.Web.Router
   use AshAuthentication.Phoenix.Router
 
-  import AshAuthentication.Plug.Helpers
-
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session

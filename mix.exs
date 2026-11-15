@@ -41,6 +41,7 @@ defmodule Authx.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:ash_authentication_oauth2_server, "~> 0.4"},
       {:bcrypt_elixir, "~> 3.0"},
       {:picosat_elixir, "~> 0.2"},
       {:sourceror, "~> 1.8", only: [:dev, :test]},
@@ -49,8 +50,8 @@ defmodule Authx.MixProject do
       {:oban_web, "~> 2.0"},
       {:ash_oban, "~> 0.10"},
       {:ash_admin, "~> 1.0"},
-      {:ash_authentication_phoenix, "~> 2.0"},
-      {:ash_authentication, "~> 4.0"},
+      {:ash_authentication_phoenix, "~> 3.0.0-rc.12"},
+      {:ash_authentication, "~> 5.0.0-rc.16"},
       {:ash_postgres, "~> 2.0"},
       {:ash_phoenix, "~> 2.0"},
       {:ash, "~> 3.0"},

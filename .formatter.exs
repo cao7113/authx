@@ -1,5 +1,6 @@
 [
   import_deps: [
+    :ash_authentication_oauth2_server,
     :ash_oban,
     :oban,
     :ash_admin,

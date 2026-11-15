@@ -8,6 +8,7 @@ defmodule Authx.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      {AshAuthentication.Oauth2Server.Supervisor, [otp_app: :authx]},
       AuthxWeb.Telemetry,
       Authx.Repo,
       {Oban,

@@ -57,7 +57,12 @@ config :authx, AuthxWeb.Endpoint,
 # different ports.
 
 # Enable dev routes for dashboard and mailbox
-config :authx, dev_routes: true, token_signing_secret: "v2LTXuwOk3DduqIn+gU3PF6k+Ne5MzDA"
+config :authx,
+  dev_routes: true,
+  token_signing_secret: "v2LTXuwOk3DduqIn+gU3PF6k+Ne5MzDA",
+  oauth2_issuer_url: "http://localhost:4000",
+  oauth2_resource_url: "http://localhost:4000",
+  oauth2_signing_secret: "+03spc1udOzieUC9y+jYDArKvwz+G4Zha/4YYZocQIw"
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
