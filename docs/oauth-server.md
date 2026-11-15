@@ -1,5 +1,10 @@
 # OAuth2 server
 
+The existing OAuth 2.1 routes are mounted only for development and tests.
+Dynamic registration and CIMD are disabled; use a pre-registered client.
+The development-only OIDC endpoints and client are described in
+[client-demo.md](client-demo.md). They are not production-ready.
+
 ```
 mix igniter.install ash_authentication_oauth2_server
 ```

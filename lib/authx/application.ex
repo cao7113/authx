@@ -7,23 +7,28 @@ defmodule Authx.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      {AshAuthentication.Oauth2Server.Supervisor, [otp_app: :authx]},
-      AuthxWeb.Telemetry,
-      Authx.Repo,
-      {Oban,
-       AshOban.config(
-         Application.fetch_env!(:authx, :ash_domains),
-         Application.fetch_env!(:authx, Oban)
-       )},
-      # Start a worker by calling: Authx.Worker.start_link(arg)
-      # {Authx.Worker, arg},
-      # Start to serve requests, typically the last entry
-      {DNSCluster, query: Application.get_env(:authx, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Authx.PubSub},
-      AuthxWeb.Endpoint,
-      {AshAuthentication.Supervisor, [otp_app: :authx]}
-    ]
+    children =
+      [
+        {AshAuthentication.Oauth2Server.Supervisor, [otp_app: :authx]},
+        AuthxWeb.Telemetry,
+        Authx.Repo,
+        {Oban,
+         AshOban.config(
+           Application.fetch_env!(:authx, :ash_domains),
+           Application.fetch_env!(:authx, Oban)
+         )},
+        # Start a worker by calling: Authx.Worker.start_link(arg)
+        # {Authx.Worker, arg},
+        # Start to serve requests, typically the last entry
+        {DNSCluster, query: Application.get_env(:authx, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: Authx.PubSub},
+        AuthxWeb.Endpoint,
+        {AshAuthentication.Supervisor, [otp_app: :authx]}
+      ] ++
+        if(Application.get_env(:authx, :oauth2_demo_routes, false),
+          do: [Authx.OidcKeys],
+          else: []
+        )
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options

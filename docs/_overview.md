@@ -26,3 +26,6 @@
 
 - OAuth2 & OIDC
 - OIDC server & client
+- IDP（Identity Provider）
+
+成熟的开源 OIDC 认证服务器（如 Keycloak、Zitadel 或 Authelia），由它们专门负责 OIDC 协议栈、会话管理和 JWKS 签发

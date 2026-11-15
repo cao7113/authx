@@ -1,0 +1,13 @@
+defmodule AuthxDemo.Accounts.Changes.StoreOidcIdentity do
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, _context) do
+    info = Ash.Changeset.get_argument(changeset, :user_info)
+
+    changeset
+    |> Ash.Changeset.change_attribute(:issuer, Application.fetch_env!(:authx_demo, :oidc_issuer))
+    |> Ash.Changeset.change_attribute(:subject, info["sub"])
+    |> Ash.Changeset.change_attribute(:email, info["email"])
+  end
+end

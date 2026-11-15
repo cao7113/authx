@@ -23,6 +23,16 @@ end
 config :authx, AuthxWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() == :dev do
+  if database = System.get_env("AUTHX_DEV_DATABASE") do
+    config :authx, Authx.Repo, database: database
+  end
+
+  if issuer = System.get_env("AUTHX_ISSUER") do
+    config :authx,
+      oauth2_issuer_url: issuer,
+      oidc_resource_url: issuer <> "/oidc/userinfo"
+  end
+
   # Reload browser tabs when matching files change.
   config :authx, AuthxWeb.Endpoint,
     live_reload: [

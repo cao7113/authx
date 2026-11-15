@@ -9,5 +9,11 @@ tasks:
 
   db: psql authx_dev
 
+  # demo
+  demo.run: |
+    cd demo
+    # AUTHX_CLIENT_ID from OauthClient.id
+    AUTHX_CLIENT_ID=01a1defe-d8bf-7311-84ca-0cfad058cc44 mix phx.server
+
   setup: |
     mix setup

@@ -5,6 +5,7 @@ defmodule AuthxWeb.Router do
   import AshAdmin.Router
   import Phoenix.LiveDashboard.Router
   use AshAuthentication.Phoenix.Router
+  use AshAuthentication.Phoenix.Oauth2Server.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -24,6 +25,59 @@ defmodule AuthxWeb.Router do
 
   pipeline :admin do
     plug AuthxWeb.Plugs.RequireAdmin
+  end
+
+  pipeline :oauth_browser do
+    plug :set_actor, :user
+  end
+
+  pipeline :oauth_protocol do
+    plug :reject_incomplete_oidc_discovery
+  end
+
+  pipeline :oidc_api do
+    plug :accepts, ["json"]
+  end
+
+  pipeline :oidc_userinfo do
+    plug AshAuthentication.Phoenix.Oauth2Server.BearerPlug, oauth2_server: Authx.OidcServer
+
+    plug AshAuthentication.Phoenix.Oauth2Server.RequireScopePlug,
+      oauth2_server: Authx.OidcServer,
+      scope: "openid"
+  end
+
+  if Application.compile_env(:authx, :oauth2_demo_routes, false) do
+    scope "/" do
+      pipe_through [:browser, :oauth_browser]
+      oauth2_server_consent_routes(oauth2_server: Authx.Oauth2Server)
+    end
+
+    scope "/", AuthxWeb do
+      pipe_through [:browser, :oauth_browser]
+      get "/oidc/authorize", OidcController, :authorize
+      post "/oidc/authorize", OidcController, :consent
+    end
+
+    scope "/", AuthxWeb do
+      pipe_through :oidc_api
+      get "/.well-known/openid-configuration", OidcController, :discovery
+      get "/oidc/jwks", OidcController, :jwks
+      post "/oidc/token", OidcController, :token
+    end
+
+    scope "/", AuthxWeb do
+      pipe_through [:oidc_api, :oidc_userinfo]
+      get "/oidc/userinfo", OidcController, :userinfo
+      post "/oidc/userinfo", OidcController, :userinfo
+    end
+
+    scope "/" do
+      pipe_through [:api, :oauth_protocol]
+
+      forward "/oauth", AshAuthentication.Phoenix.Oauth2Server.ProtocolRouter,
+        oauth2_server: Authx.Oauth2Server
+    end
   end
 
   scope "/", AuthxWeb do
@@ -117,4 +171,10 @@ defmodule AuthxWeb.Router do
       ],
       session: [{AshAuthentication.Phoenix.LiveSession, :generate_session, [nil, []]}]
   end
+
+  defp reject_incomplete_oidc_discovery(%{path_info: ["oauth", "openid-configuration"]} = conn, _) do
+    conn |> send_resp(404, "") |> halt()
+  end
+
+  defp reject_incomplete_oidc_discovery(conn, _), do: conn
 end

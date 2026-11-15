@@ -22,6 +22,7 @@ defmodule Authx.Accounts.OauthAuthorizationCode do
         :code_challenge,
         :scope,
         :resource_uri,
+        :nonce,
         :expires_at
       ]
     end
@@ -73,6 +74,10 @@ defmodule Authx.Accounts.OauthAuthorizationCode do
 
     attribute :resource_uri, :string do
       allow_nil? false
+      public? true
+    end
+
+    attribute :nonce, :string do
       public? true
     end
 
