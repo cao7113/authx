@@ -59,6 +59,7 @@ config :authx, AuthxWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :authx,
   dev_routes: true,
+  dev_login_defaults: %{email: "admin@l.h", password: "password123456"},
   token_signing_secret: "v2LTXuwOk3DduqIn+gU3PF6k+Ne5MzDA",
   oauth2_issuer_url: "http://localhost:4000",
   oauth2_resource_url: "http://localhost:4000",

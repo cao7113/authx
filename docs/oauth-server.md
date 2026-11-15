@@ -1,6 +1,10 @@
 # OAuth2 server
 
 ```
+mix igniter.install ash_authentication_oauth2_server
+```
+
+```
 Notices:
 
 * OAuth 2.1 server scaffolded.

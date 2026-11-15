@@ -104,3 +104,12 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+.nav-tools:hover .nav-tools-menu,
+.nav-tools:focus-within .nav-tools-menu,
+.nav-tools.is-open .nav-tools-menu {
+  display: block;
+}
+
+.nav-tools.is-dismissed .nav-tools-menu {
+  display: none;
+}

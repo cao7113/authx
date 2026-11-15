@@ -1,10 +1,8 @@
 # Authx 应用
 
-```
-mix igniter.install ash_authentication_oauth2_server
-```
+基于 phoenix + ash的 OIDC server
 
-## 需求描述
+## 背景和目标
 
 多个基于elixir + phoenix + ash的 web应用，如 eim, slink等，不想在每个应用里设计维护认证系统
 
@@ -16,8 +14,9 @@ mix igniter.install ash_authentication_oauth2_server
 
 - 确认 elixir技术框架
 - 支持 password/magic-link
+- oauth2 server
 
-### 支持联合登录
+### 联合登录
 
 - github
 - apple

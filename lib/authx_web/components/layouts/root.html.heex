@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
-    <%= Application.get_env(:live_debugger, :live_debugger_tags) %>
+    {Application.get_env(:live_debugger, :live_debugger_tags)}
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="Authx" suffix=" · Phoenix Framework" phx-no-format>{assigns[:page_title]}</.live_title>
+    <.live_title default="身份服务" suffix=" · Authx" phx-no-format>{assigns[:page_title]}</.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
@@ -39,7 +39,18 @@
       })();
     </script>
   </head>
-  <body>
+  <body
+    class="bg-[#fafbf8]"
+    data-dev-login-email={
+      if Application.get_env(:authx, :dev_routes, false),
+        do: get_in(Application.get_env(:authx, :dev_login_defaults, %{}), [:email])
+    }
+    data-dev-login-password={
+      if Application.get_env(:authx, :dev_routes, false),
+        do: get_in(Application.get_env(:authx, :dev_login_defaults, %{}), [:password])
+    }
+  >
+    <Layouts.site_header current_user={assigns[:current_user]} />
     {@inner_content}
   </body>
 </html>

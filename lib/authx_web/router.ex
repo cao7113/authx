@@ -2,6 +2,8 @@ defmodule AuthxWeb.Router do
   use AuthxWeb, :router
 
   import Oban.Web.Router
+  import AshAdmin.Router
+  import Phoenix.LiveDashboard.Router
   use AshAuthentication.Phoenix.Router
 
   pipeline :browser do
@@ -18,6 +20,19 @@ defmodule AuthxWeb.Router do
     plug :accepts, ["json"]
     plug :load_from_bearer
     plug :set_actor, :user
+  end
+
+  pipeline :admin do
+    plug AuthxWeb.Plugs.RequireAdmin
+  end
+
+  scope "/", AuthxWeb do
+    pipe_through :browser
+
+    ash_authentication_live_session :admin_user_routes,
+      on_mount: [{AuthxWeb.AdminDashboardAuth, :user}] do
+      live "/manage/users", AdminUsersLive, :index
+    end
   end
 
   scope "/", AuthxWeb do
@@ -74,36 +89,32 @@ defmodule AuthxWeb.Router do
   #   pipe_through :api
   # end
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+  # Enable the Swoosh mailbox preview in development
   if Application.compile_env(:authx, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
-    import Phoenix.LiveDashboard.Router
-
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: AuthxWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
-    end
-
-    scope "/" do
-      pipe_through :browser
-
-      oban_dashboard("/oban")
     end
   end
 
-  if Application.compile_env(:authx, :dev_routes) do
-    import AshAdmin.Router
+  scope "/" do
+    pipe_through [:browser, :admin]
 
-    scope "/admin" do
-      pipe_through :browser
+    live_dashboard "/admin/dashboard",
+      metrics: AuthxWeb.Telemetry,
+      on_mount: [AshAuthentication.Phoenix.LiveSession, {AuthxWeb.AdminDashboardAuth, :user}]
 
-      ash_admin "/"
-    end
+    oban_dashboard("/oban",
+      resolver: AuthxWeb.ObanResolver,
+      on_mount: [{AuthxWeb.AdminDashboardAuth, :oban}]
+    )
+
+    ash_admin "/admin",
+      on_mount: [
+        AshAuthentication.Phoenix.LiveSession,
+        {AuthxWeb.AdminDashboardAuth, :ash_admin}
+      ],
+      session: [{AshAuthentication.Phoenix.LiveSession, :generate_session, [nil, []]}]
   end
 end

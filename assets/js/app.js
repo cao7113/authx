@@ -25,6 +25,108 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/authx"
 import topbar from "../vendor/topbar"
 
+const {devLoginEmail, devLoginPassword} = document.body.dataset
+
+if (devLoginEmail && devLoginPassword && window.location.pathname === "/sign-in") {
+  const fillDevCredentials = () => {
+    if (window.location.pathname !== "/sign-in") {
+      observer.disconnect()
+      document.removeEventListener("input", stopFilling, true)
+      return
+    }
+
+    const form = document.querySelector('form[action="/auth/user/password/sign_in"]')
+    const email = form?.querySelector('input[type="email"]')
+    const password = form?.querySelector('input[type="password"]')
+
+    if (email && !email.value) email.value = devLoginEmail
+    if (password && !password.value) password.value = devLoginPassword
+  }
+  const stopFilling = () => {
+    observer.disconnect()
+    document.removeEventListener("input", stopFilling, true)
+  }
+  const observer = new MutationObserver(fillDevCredentials)
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["value"],
+    childList: true,
+    subtree: true,
+  })
+  document.addEventListener("input", stopFilling, true)
+  fillDevCredentials()
+}
+
+const closeNavMenu = menu => {
+  menu.classList.remove("is-open")
+  menu.querySelector("button[aria-controls]").setAttribute("aria-expanded", "false")
+}
+
+document.addEventListener("click", event => {
+  const toggle = event.target.closest(".nav-tools > button[aria-controls]")
+  if (!toggle) return
+
+  const menu = toggle.parentElement
+  menu.classList.remove("is-dismissed")
+  const isOpen = menu.classList.toggle("is-open")
+  if (!isOpen) menu.classList.add("is-dismissed")
+  toggle.setAttribute("aria-expanded", String(isOpen))
+})
+
+document.addEventListener("pointerover", event => {
+  const menu = event.target.closest(".nav-tools")
+  if (menu && !menu.contains(event.relatedTarget)) {
+    menu.classList.remove("is-dismissed")
+    menu.querySelector("button[aria-controls]").setAttribute("aria-expanded", "true")
+  }
+})
+
+document.addEventListener("focusin", event => {
+  const menu = event.target.closest(".nav-tools")
+  if (menu && !menu.contains(event.relatedTarget)) {
+    menu.classList.remove("is-dismissed")
+    menu.querySelector("button[aria-controls]").setAttribute("aria-expanded", "true")
+  }
+})
+
+document.addEventListener("focusout", event => {
+  const menu = event.target.closest(".nav-tools")
+  if (menu && !menu.contains(event.relatedTarget) && !menu.matches(":hover")) closeNavMenu(menu)
+})
+
+document.addEventListener("pointerout", event => {
+  const menu = event.target.closest(".nav-tools")
+  if (!menu || menu.contains(event.relatedTarget)) return
+
+  const activeElement = document.activeElement
+  const keyboardFocused = activeElement instanceof HTMLElement &&
+    menu.contains(activeElement) && activeElement.matches(":focus-visible")
+  if (!keyboardFocused) {
+    closeNavMenu(menu)
+    if (activeElement instanceof HTMLElement && menu.contains(activeElement)) activeElement.blur()
+  }
+})
+
+document.addEventListener("pointerdown", event => {
+  document.querySelectorAll(".nav-tools").forEach(menu => {
+    if (!menu.contains(event.target)) {
+      closeNavMenu(menu)
+      if (menu.contains(document.activeElement)) document.activeElement.blur()
+    }
+  })
+})
+
+document.addEventListener("keydown", event => {
+  if (event.key !== "Escape") return
+  const menu = event.target.closest(".nav-tools")
+  if (menu) {
+    closeNavMenu(menu)
+    menu.classList.add("is-dismissed")
+    menu.querySelector("button[aria-controls]").focus()
+  }
+})
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

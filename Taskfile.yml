@@ -7,5 +7,7 @@ tasks:
   run: iex --erl "-kernel shell_history enabled" -S mix phx.server
   fmt: mix format
 
+  db: psql authx_dev
+
   setup: |
     mix setup
