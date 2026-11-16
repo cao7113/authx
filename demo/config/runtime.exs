@@ -35,7 +35,7 @@ token_signing_secret =
   end
 
 config :authx_demo,
-  oidc_client_id: System.get_env("AUTHX_CLIENT_ID"),
+  oidc_client_id: System.get_env("AUTHX_CLIENT_ID", "00000000-0000-7000-8000-000000000001"),
   oidc_issuer: System.get_env("AUTHX_ISSUER", "http://localhost:4000"),
   oidc_redirect_uri: System.get_env("AUTHX_REDIRECT_URI", "http://localhost:4001/auth"),
   token_signing_secret: token_signing_secret

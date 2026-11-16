@@ -3,17 +3,18 @@ defmodule AuthxWeb.OidcController do
 
   alias AshAuthentication.Oauth2Server.{Authorize, Token}
   alias AshAuthentication.Phoenix.Oauth2Server.{ConsentView, Errors}
-  alias Authx.Accounts.{OauthAuthorizationCode, User}
-  alias Authx.{OidcKeys, OidcServer}
+  alias Authx.Accounts.User
+  alias Authx.Oauth.AuthorizationCode
+  alias Authx.Oauth.Oidc.{Keys, Server}
 
   @auth_context %{private: %{ash_authentication?: true}}
   @salt "authx oidc consent v1"
   @request_fields ~w(client_id redirect_uri response_type scope state code_challenge code_challenge_method resource nonce)
 
   def discovery(conn, _) do
-    issuer = OidcServer.issuer_url()
+    issuer = Server.issuer_url()
 
-    json(conn, %{
+    metadata = %{
       issuer: issuer,
       authorization_endpoint: issuer <> "/oidc/authorize",
       token_endpoint: issuer <> "/oidc/token",
@@ -27,10 +28,14 @@ defmodule AuthxWeb.OidcController do
       grant_types_supported: ["authorization_code"],
       token_endpoint_auth_methods_supported: ["none"],
       code_challenge_methods_supported: ["S256"]
-    })
+    }
+
+    # 不发布 registration_endpoint：客户端由开发者控制台创建并归属某个
+    # developer，动态注册无法证明开发者身份。
+    json(conn, metadata)
   end
 
-  def jwks(conn, _), do: json(conn, %{keys: [OidcKeys.public_key()]})
+  def jwks(conn, _), do: json(conn, %{keys: [Keys.public_key()]})
 
   def authorize(conn, params) do
     with {:ok, validated} <- validate_request(params) do
@@ -43,7 +48,7 @@ defmodule AuthxWeb.OidcController do
           |> redirect(to: "/sign-in")
 
         user ->
-          if Authorize.consented?(OidcServer, user, validated.client, validated.scope) do
+          if Authorize.consented?(Server, user, validated.client, validated.scope) do
             issue_code(conn, user, validated, params["nonce"])
           else
             render_consent(conn, validated, params)
@@ -64,11 +69,11 @@ defmodule AuthxWeb.OidcController do
   def consent(conn, %{"consent_request" => signed, "action" => action})
       when is_binary(signed) and action in ["approve", "deny"] do
     with {:ok, params} <-
-           Plug.Crypto.verify(OidcServer.signing_secret(), @salt, signed, max_age: 600),
+           Plug.Crypto.verify(Server.signing_secret(), @salt, signed, max_age: 600),
          {:ok, validated} <- validate_request(params),
          user when not is_nil(user) <- Ash.PlugHelpers.get_actor(conn) do
       if action == "approve" do
-        Authorize.grant_consent!(OidcServer, user, validated.client, validated.scope)
+        Authorize.grant_consent!(Server, user, validated.client, validated.scope)
         conn |> configure_session(renew: true) |> issue_code(user, validated, params["nonce"])
       else
         authorization_redirect(conn, validated, %{"error" => "access_denied"})
@@ -88,17 +93,17 @@ defmodule AuthxWeb.OidcController do
       when is_binary(id) and is_binary(uri) and uri != "" do
     opts = [context: @auth_context]
 
-    with {:ok, %OauthAuthorizationCode{} = code} <- Ash.get(OauthAuthorizationCode, id, opts),
+    with {:ok, %AuthorizationCode{} = code} <- Ash.get(AuthorizationCode, id, opts),
          true <- is_binary(code.nonce) and code.nonce != "",
          true <- "openid" in String.split(code.scope, " ", trim: true),
          {:ok, %User{} = user} <- Ash.get(User, code.user_id, opts),
          {:ok, response} <-
-           Token.exchange_authorization_code(OidcServer, params, token_opts(conn)) do
+           Token.exchange_authorization_code(Server, params, token_opts(conn)) do
       now = System.system_time(:second)
 
       claims =
         %{
-          "iss" => OidcServer.issuer_url(),
+          "iss" => Server.issuer_url(),
           "sub" => user.id,
           "aud" => code.client_id,
           "iat" => now,
@@ -115,7 +120,7 @@ defmodule AuthxWeb.OidcController do
         token_type: response.token_type,
         expires_in: response.expires_in,
         scope: response.scope,
-        id_token: OidcKeys.sign(claims)
+        id_token: Keys.sign(claims)
       })
     else
       {:error, reason} when is_atom(reason) ->
@@ -143,7 +148,8 @@ defmodule AuthxWeb.OidcController do
              ~w(prompt max_age claims request request_uri),
              &(not Map.has_key?(params, &1))
            ),
-         {:ok, validated} <- Authorize.validate_request(OidcServer, params),
+         {:ok, validated} <- Authorize.validate_request(Server, params),
+         true <- validated.redirect_uri in validated.client.redirect_uris,
          requested <- MapSet.new(String.split(validated.scope, " ", trim: true)),
          allowed <- MapSet.new(String.split(validated.client.scope || "", " ", trim: true)),
          true <- MapSet.member?(requested, "openid") and MapSet.subset?(requested, allowed),
@@ -161,7 +167,7 @@ defmodule AuthxWeb.OidcController do
 
   defp render_consent(conn, validated, params) do
     signed =
-      Plug.Crypto.sign(OidcServer.signing_secret(), @salt, Map.take(params, @request_fields))
+      Plug.Crypto.sign(Server.signing_secret(), @salt, Map.take(params, @request_fields))
 
     body =
       ConsentView.render(:consent, %{
@@ -186,7 +192,7 @@ defmodule AuthxWeb.OidcController do
 
   defp issue_code(conn, user, validated, nonce) do
     code =
-      OauthAuthorizationCode
+      AuthorizationCode
       |> Ash.Changeset.for_create(:create, %{
         client_id: validated.client.id,
         user_id: user.id,
@@ -195,7 +201,7 @@ defmodule AuthxWeb.OidcController do
         scope: validated.scope,
         resource_uri: validated.resource,
         nonce: nonce,
-        expires_at: DateTime.add(DateTime.utc_now(), OidcServer.authorization_code_lifetime())
+        expires_at: DateTime.add(DateTime.utc_now(), Server.authorization_code_lifetime())
       })
       |> Ash.create!(context: @auth_context)
 
@@ -205,7 +211,7 @@ defmodule AuthxWeb.OidcController do
   defp authorization_redirect(conn, validated, params) do
     params =
       params
-      |> Map.put("iss", OidcServer.issuer_url())
+      |> Map.put("iss", Server.issuer_url())
       |> then(fn params ->
         if validated.state, do: Map.put(params, "state", validated.state), else: params
       end)

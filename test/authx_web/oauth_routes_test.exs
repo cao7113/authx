@@ -1,25 +1,18 @@
 defmodule AuthxWeb.OauthRoutesTest do
   use AuthxWeb.ConnCase, async: true
 
+  import Authx.Fixtures
+
   alias AshAuthentication.Oauth2Server.Jwt
-  alias Authx.Accounts.{OauthClient, User}
-  alias Authx.Oauth2Server
+  alias Authx.Accounts.User
+  alias Authx.Oauth.Server
 
   @redirect_uri "http://localhost:4001/auth/user/authx/callback"
   @verifier String.duplicate("a", 43)
 
   setup do
-    client =
-      OauthClient
-      |> Ash.Changeset.for_create(:register, %{
-        client_name: "Test client",
-        redirect_uris: [@redirect_uri],
-        grant_types: ["authorization_code"],
-        response_types: ["code"],
-        token_endpoint_auth_method: "none",
-        scope: "mcp"
-      })
-      |> Ash.create!(authorize?: false)
+    developer = create_developer("oauth-routes@example.com")
+    client = register_client(developer, %{scope: "mcp"})
 
     params = %{
       "client_id" => client.id,
@@ -94,7 +87,7 @@ defmodule AuthxWeb.OauthRoutesTest do
 
     result = build_conn() |> post("/oauth/token", token_params) |> json_response(200)
     assert %{"access_token" => access_token, "token_type" => "Bearer"} = result
-    assert {:ok, %{"sub" => subject, "scope" => "mcp"}} = Jwt.verify(Oauth2Server, access_token)
+    assert {:ok, %{"sub" => subject, "scope" => "mcp"}} = Jwt.verify(Server, access_token)
     assert subject == user.id
 
     replay = build_conn() |> post("/oauth/token", token_params)

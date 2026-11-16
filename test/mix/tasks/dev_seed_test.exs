@@ -7,13 +7,21 @@ defmodule Mix.Tasks.Dev.SeedTest do
     original_env = Mix.env()
     original_shell = Mix.shell()
     original_defaults = Application.fetch_env(:authx, :dev_login_defaults)
+    original_demo = Application.fetch_env(:authx, :demo_client_app)
 
     Mix.env(:dev)
     Mix.shell(Mix.Shell.Process)
 
     Application.put_env(:authx, :dev_login_defaults, %{
       email: "admin@l.h",
+      user_email: "dev@l.h",
       password: "password123456"
+    })
+
+    Application.put_env(:authx, :demo_client_app, %{
+      client_id: "00000000-0000-7000-8000-000000000001",
+      client_name: "Authx local OIDC demo",
+      redirect_uri: "http://localhost:4001/auth/user/authx/callback"
     })
 
     on_exit(fn ->
@@ -23,6 +31,11 @@ defmodule Mix.Tasks.Dev.SeedTest do
       case original_defaults do
         {:ok, defaults} -> Application.put_env(:authx, :dev_login_defaults, defaults)
         :error -> Application.delete_env(:authx, :dev_login_defaults)
+      end
+
+      case original_demo do
+        {:ok, demo} -> Application.put_env(:authx, :demo_client_app, demo)
+        :error -> Application.delete_env(:authx, :demo_client_app)
       end
     end)
 

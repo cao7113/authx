@@ -4,7 +4,13 @@ defmodule Authx.Accounts.User do
     domain: Authx.Accounts,
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer],
-    extensions: [AshAuthentication]
+    extensions: [AshAuthentication, AshAdmin.Resource]
+
+  admin do
+    label_field :email
+    table_columns [:id, :email, :role, :confirmed_at]
+    actor? true
+  end
 
   authentication do
     add_ons do
@@ -324,6 +330,10 @@ defmodule Authx.Accounts.User do
       default :user
       constraints one_of: [:user, :admin]
     end
+  end
+
+  relationships do
+    has_one :developer, Authx.Developers.Developer
   end
 
   identities do

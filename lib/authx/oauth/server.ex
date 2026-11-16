@@ -1,4 +1,4 @@
-defmodule Authx.Oauth2Server do
+defmodule Authx.Oauth.Server do
   @moduledoc """
   OAuth 2.1 authorization-server configuration.
 
@@ -11,10 +11,10 @@ defmodule Authx.Oauth2Server do
     issuer_url: {Authx.Secrets, []},
     resource_url: {Authx.Secrets, []},
     signing_secret: {Authx.Secrets, []},
-    client_resource: Authx.Accounts.OauthClient,
-    authorization_code_resource: Authx.Accounts.OauthAuthorizationCode,
-    refresh_token_resource: Authx.Accounts.OauthRefreshToken,
-    consent_resource: Authx.Accounts.OauthConsent,
+    client_resource: Authx.Oauth.Client,
+    authorization_code_resource: Authx.Oauth.AuthorizationCode,
+    refresh_token_resource: Authx.Oauth.RefreshToken,
+    consent_resource: Authx.Oauth.Consent,
     scopes: ["mcp"],
     dcr_enabled?: false,
     cimd_enabled?: false,

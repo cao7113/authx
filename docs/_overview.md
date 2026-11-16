@@ -2,6 +2,13 @@
 
 基于 phoenix + ash的 OIDC server
 
+生产化计划和上线门禁见 [OIDC 生产化与上线计划](oidc-production.md)。
+管理员与客户端注册的设计见 [OIDC 客户端管理](oidc-client-management.md)。
+
+## todo
+
+- 多 OIDC providers 能否是否可以归并到同一个 统一user
+
 ## 背景和目标
 
 多个基于elixir + phoenix + ash的 web应用，如 eim, slink等，不想在每个应用里设计维护认证系统

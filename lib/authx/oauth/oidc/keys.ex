@@ -1,5 +1,7 @@
-defmodule Authx.OidcKeys do
-  @moduledoc false
+defmodule Authx.Oauth.Oidc.Keys do
+  @moduledoc """
+  Manages RS256 signing keys and public key distribution for OIDC tokens.
+  """
   use GenServer
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, nil, name: __MODULE__)
@@ -8,7 +10,22 @@ defmodule Authx.OidcKeys do
 
   @impl true
   def init(nil) do
-    key = JOSE.JWK.generate_key({:rsa, 2048})
+    key =
+      case Application.get_env(:authx, :oidc_private_key_file) do
+        nil ->
+          JOSE.JWK.generate_key({:rsa, 2048})
+
+        path ->
+          key = path |> File.read!() |> JOSE.JWK.from_pem()
+          {_, params} = JOSE.JWK.to_map(key)
+
+          unless params["kty"] == "RSA" and is_binary(params["d"]) do
+            raise "OIDC private key must be an RSA private key"
+          end
+
+          key
+      end
+
     kid = JOSE.JWK.thumbprint(key)
     {_, public} = key |> JOSE.JWK.to_public() |> JOSE.JWK.to_map()
 

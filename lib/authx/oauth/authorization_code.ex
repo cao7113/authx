@@ -1,7 +1,7 @@
-defmodule Authx.Accounts.OauthAuthorizationCode do
+defmodule Authx.Oauth.AuthorizationCode do
   use Ash.Resource,
     otp_app: :authx,
-    domain: Authx.Accounts,
+    domain: Authx.Oauth,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshAuthentication.Oauth2Server.AuthorizationCodeResource],
     authorizers: [Ash.Policy.Authorizer]
@@ -88,6 +88,19 @@ defmodule Authx.Accounts.OauthAuthorizationCode do
 
     attribute :consumed_at, :utc_datetime_usec do
       public? true
+    end
+  end
+
+  relationships do
+    belongs_to :user, Authx.Accounts.User do
+      allow_nil? false
+      attribute_writable? true
+    end
+
+    belongs_to :client, Authx.Oauth.Client do
+      source_attribute :client_id
+      allow_nil? false
+      attribute_writable? true
     end
   end
 end

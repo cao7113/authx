@@ -5,6 +5,7 @@ config :authx, token_signing_secret: "5eZG2YfG6iDzeKs9b8am0zBUR6Wf0Tkl"
 
 config :authx,
   oauth2_demo_routes: true,
+  local_oidc_enabled: true,
   oauth2_issuer_url: "http://localhost:4000",
   oauth2_resource_url: "http://localhost:4000",
   oidc_resource_url: "http://localhost:4000/oidc/userinfo",

@@ -22,6 +22,14 @@ end
 
 config :authx, AuthxWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+local_oidc? = System.get_env("AUTHX_LOCAL_OIDC") == "true"
+
+# 本地显式开启 OIDC 端点；客户端由开发者创建并归属某个 developer，
+# 不再有共享注册令牌。
+if local_oidc? and config_env() in [:dev, :prod] do
+  config :authx, local_oidc_enabled: true
+end
+
 if config_env() == :dev do
   if database = System.get_env("AUTHX_DEV_DATABASE") do
     config :authx, Authx.Repo, database: database
@@ -50,6 +58,25 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
+  if local_oidc? do
+    oauth_signing_secret =
+      System.get_env("AUTHX_OAUTH_SIGNING_SECRET") ||
+        raise "AUTHX_OAUTH_SIGNING_SECRET is required for local OIDC"
+
+    if byte_size(oauth_signing_secret) < 32 do
+      raise "AUTHX_OAUTH_SIGNING_SECRET must contain at least 32 bytes"
+    end
+
+    config :authx,
+      local_oidc_enabled: true,
+      oauth2_issuer_url: "https://authx.s",
+      oidc_resource_url: "https://authx.s/oidc/userinfo",
+      oauth2_signing_secret: oauth_signing_secret,
+      oidc_private_key_file:
+        System.get_env("AUTHX_OIDC_PRIVATE_KEY_FILE") ||
+          raise("AUTHX_OIDC_PRIVATE_KEY_FILE is required for local OIDC")
+  end
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
@@ -67,6 +94,12 @@ if config_env() == :prod do
     # pool_count: 4,
     socket_options: maybe_ipv6
 
+  if local_oidc? do
+    if socket_dir = System.get_env("AUTHX_DATABASE_SOCKET_DIR") do
+      config :authx, Authx.Repo, socket_dir: socket_dir
+    end
+  end
+
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
   # want to use a different value for prod and you most likely don't want
@@ -79,7 +112,7 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
+  host = System.get_env("PHX_HOST") || if(local_oidc?, do: "authx.s", else: "example.com")
 
   config :authx, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
@@ -90,7 +123,7 @@ if config_env() == :prod do
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
       # See the documentation on https://bandit.hexdocs.pm/Bandit.html#t:options/0
       # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
+      ip: if(local_oidc?, do: {127, 0, 0, 1}, else: {0, 0, 0, 0, 0, 0, 0, 0})
     ],
     secret_key_base: secret_key_base
 

@@ -1,23 +1,21 @@
 defmodule AuthxWeb.OidcRoutesTest do
   use AuthxWeb.ConnCase, async: true
 
-  alias Authx.Accounts.{OauthClient, User}
+  import Authx.Fixtures
+
+  alias Authx.Accounts.User
 
   @redirect_uri "http://localhost:4001/auth/user/authx/callback"
   @verifier String.duplicate("v", 43)
 
   setup do
+    developer = create_developer("oidc-routes@example.com")
+
     client =
-      OauthClient
-      |> Ash.Changeset.for_create(:register, %{
+      register_client(developer, %{
         client_name: "OIDC test",
-        redirect_uris: [@redirect_uri],
-        grant_types: ["authorization_code"],
-        response_types: ["code"],
-        token_endpoint_auth_method: "none",
         scope: "openid email"
       })
-      |> Ash.create!(authorize?: false)
 
     user =
       User
@@ -37,6 +35,9 @@ defmodule AuthxWeb.OidcRoutesTest do
     assert metadata["authorization_endpoint"] == "http://localhost:4000/oidc/authorize"
     assert metadata["token_endpoint"] == "http://localhost:4000/oidc/token"
     assert metadata["id_token_signing_alg_values_supported"] == ["RS256"]
+
+    # 客户端由开发者创建并归属某个 developer，不发布注册端点
+    refute Map.has_key?(metadata, "registration_endpoint")
 
     assert %{"keys" => [%{"kty" => "RSA", "kid" => _, "n" => _, "e" => _} = key]} =
              build_conn() |> get("/oidc/jwks") |> json_response(200)
@@ -110,6 +111,13 @@ defmodule AuthxWeb.OidcRoutesTest do
 
     assert build_conn()
            |> get("/oidc/authorize", Map.delete(params, "nonce"))
+           |> json_response(400)
+
+    assert build_conn()
+           |> get(
+             "/oidc/authorize",
+             Map.put(params, "redirect_uri", "http://localhost:4999/auth/user/authx/callback")
+           )
            |> json_response(400)
 
     code = authorize(client, user, "openid email", "nonce")

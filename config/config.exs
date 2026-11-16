@@ -8,6 +8,7 @@
 import Config
 
 config :ash_oban, pro?: false
+config :ash_admin, :actor_plug, AuthxWeb.Plugs.AdminActor
 
 config :authx, Oban,
   engine: Oban.Engines.Basic,
@@ -74,7 +75,7 @@ config :spark,
 config :authx,
   ecto_repos: [Authx.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Authx.Accounts],
+  ash_domains: [Authx.Accounts, Authx.Developers, Authx.Oauth],
   ash_authentication: [return_error_on_invalid_magic_link_token?: true]
 
 # Configure the endpoint

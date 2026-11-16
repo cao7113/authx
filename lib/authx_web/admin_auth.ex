@@ -1,4 +1,4 @@
-defmodule AuthxWeb.AdminDashboardAuth do
+defmodule AuthxWeb.AdminAuth do
   import Phoenix.LiveView
 
   alias Authx.Accounts.Admins

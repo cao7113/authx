@@ -39,52 +39,56 @@ defmodule AuthxWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :oidc_enabled do
+    plug :require_oidc_enabled
+  end
+
   pipeline :oidc_userinfo do
-    plug AshAuthentication.Phoenix.Oauth2Server.BearerPlug, oauth2_server: Authx.OidcServer
+    plug AshAuthentication.Phoenix.Oauth2Server.BearerPlug, oauth2_server: Authx.Oauth.Oidc.Server
 
     plug AshAuthentication.Phoenix.Oauth2Server.RequireScopePlug,
-      oauth2_server: Authx.OidcServer,
+      oauth2_server: Authx.Oauth.Oidc.Server,
       scope: "openid"
   end
 
   if Application.compile_env(:authx, :oauth2_demo_routes, false) do
     scope "/" do
       pipe_through [:browser, :oauth_browser]
-      oauth2_server_consent_routes(oauth2_server: Authx.Oauth2Server)
-    end
-
-    scope "/", AuthxWeb do
-      pipe_through [:browser, :oauth_browser]
-      get "/oidc/authorize", OidcController, :authorize
-      post "/oidc/authorize", OidcController, :consent
-    end
-
-    scope "/", AuthxWeb do
-      pipe_through :oidc_api
-      get "/.well-known/openid-configuration", OidcController, :discovery
-      get "/oidc/jwks", OidcController, :jwks
-      post "/oidc/token", OidcController, :token
-    end
-
-    scope "/", AuthxWeb do
-      pipe_through [:oidc_api, :oidc_userinfo]
-      get "/oidc/userinfo", OidcController, :userinfo
-      post "/oidc/userinfo", OidcController, :userinfo
+      oauth2_server_consent_routes(oauth2_server: Authx.Oauth.Server)
     end
 
     scope "/" do
       pipe_through [:api, :oauth_protocol]
 
       forward "/oauth", AshAuthentication.Phoenix.Oauth2Server.ProtocolRouter,
-        oauth2_server: Authx.Oauth2Server
+        oauth2_server: Authx.Oauth.Server
     end
+  end
+
+  scope "/", AuthxWeb do
+    pipe_through [:oidc_enabled, :browser, :oauth_browser]
+    get "/oidc/authorize", OidcController, :authorize
+    post "/oidc/authorize", OidcController, :consent
+  end
+
+  scope "/", AuthxWeb do
+    pipe_through [:oidc_enabled, :oidc_api]
+    get "/.well-known/openid-configuration", OidcController, :discovery
+    get "/oidc/jwks", OidcController, :jwks
+    post "/oidc/token", OidcController, :token
+  end
+
+  scope "/", AuthxWeb do
+    pipe_through [:oidc_enabled, :oidc_api, :oidc_userinfo]
+    get "/oidc/userinfo", OidcController, :userinfo
+    post "/oidc/userinfo", OidcController, :userinfo
   end
 
   scope "/", AuthxWeb do
     pipe_through :browser
 
     ash_authentication_live_session :admin_user_routes,
-      on_mount: [{AuthxWeb.AdminDashboardAuth, :user}] do
+      on_mount: [{AuthxWeb.AdminAuth, :user}] do
       live "/manage/users", AdminUsersLive, :index
     end
   end
@@ -157,17 +161,17 @@ defmodule AuthxWeb.Router do
 
     live_dashboard "/admin/dashboard",
       metrics: AuthxWeb.Telemetry,
-      on_mount: [AshAuthentication.Phoenix.LiveSession, {AuthxWeb.AdminDashboardAuth, :user}]
+      on_mount: [AshAuthentication.Phoenix.LiveSession, {AuthxWeb.AdminAuth, :user}]
 
     oban_dashboard("/oban",
       resolver: AuthxWeb.ObanResolver,
-      on_mount: [{AuthxWeb.AdminDashboardAuth, :oban}]
+      on_mount: [{AuthxWeb.AdminAuth, :oban}]
     )
 
     ash_admin "/admin",
       on_mount: [
         AshAuthentication.Phoenix.LiveSession,
-        {AuthxWeb.AdminDashboardAuth, :ash_admin}
+        {AuthxWeb.AdminAuth, :ash_admin}
       ],
       session: [{AshAuthentication.Phoenix.LiveSession, :generate_session, [nil, []]}]
   end
@@ -177,4 +181,13 @@ defmodule AuthxWeb.Router do
   end
 
   defp reject_incomplete_oidc_discovery(conn, _), do: conn
+
+  defp require_oidc_enabled(conn, _) do
+    if Application.get_env(:authx, :oauth2_demo_routes, false) or
+         Application.get_env(:authx, :local_oidc_enabled, false) do
+      conn
+    else
+      conn |> send_resp(404, "") |> halt()
+    end
+  end
 end

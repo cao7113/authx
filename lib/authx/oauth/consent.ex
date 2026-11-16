@@ -1,7 +1,7 @@
-defmodule Authx.Accounts.OauthConsent do
+defmodule Authx.Oauth.Consent do
   use Ash.Resource,
     otp_app: :authx,
-    domain: Authx.Accounts,
+    domain: Authx.Oauth,
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
@@ -48,6 +48,19 @@ defmodule Authx.Accounts.OauthConsent do
     attribute :granted_at, :utc_datetime_usec do
       allow_nil? false
       public? true
+    end
+  end
+
+  relationships do
+    belongs_to :user, Authx.Accounts.User do
+      allow_nil? false
+      attribute_writable? true
+    end
+
+    belongs_to :client, Authx.Oauth.Client do
+      source_attribute :client_id
+      allow_nil? false
+      attribute_writable? true
     end
   end
 

@@ -21,14 +21,14 @@ defmodule Authx.Application do
         # {Authx.Worker, arg},
         # Start to serve requests, typically the last entry
         {DNSCluster, query: Application.get_env(:authx, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: Authx.PubSub},
-        AuthxWeb.Endpoint,
-        {AshAuthentication.Supervisor, [otp_app: :authx]}
+        {Phoenix.PubSub, name: Authx.PubSub}
       ] ++
-        if(Application.get_env(:authx, :oauth2_demo_routes, false),
-          do: [Authx.OidcKeys],
+        if(
+          Application.get_env(:authx, :oauth2_demo_routes, false) or
+            Application.get_env(:authx, :local_oidc_enabled, false),
+          do: [Authx.Oauth.Oidc.Keys],
           else: []
-        )
+        ) ++ [AuthxWeb.Endpoint, {AshAuthentication.Supervisor, [otp_app: :authx]}]
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options

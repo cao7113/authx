@@ -2,8 +2,8 @@
 
 ## 当前实现
 
-Authx 在开发和测试环境提供受限的 OIDC authorization code + S256 PKCE
-流程；`demo/` 是独立的 Phoenix、Ash 和 AshAuthentication 应用。demo
+Authx 为开发、测试和显式启用的本地试运行提供受限的 OIDC authorization
+code + S256 PKCE 流程；`demo/` 是独立的 Phoenix、Ash 和 AshAuthentication 应用。demo
 使用自己的数据库和会话，不直接读取 Authx 数据库或接收用户密码。
 
 Authx 的 discovery、JWKS、授权、token 和 UserInfo 端点分别位于
@@ -23,25 +23,24 @@ demo 的 AshAuthentication OIDC strategy 验证 ID Token，并按 `(issuer, sub)
 demo 与根项目共享 `deps/` 和根 `mix.lock`，但有独立的 `_build/`、
 数据库和应用进程；它不会自动下载依赖。
 
-1. 在根目录准备 Authx 数据库：
+1. 在根目录准备 Authx 数据库、开发用户和本地 demo 客户端：
 
    ```sh
-   mix ecto.create
-   mix ecto.migrate
+   mix dev.setup
    ```
 
-   使用已有用户即可。若需要开发账号，可执行 `mix dev.seed`；**该命令
-   会重置现有开发账号的密码**，详见根目录 README。
+   该命令创建数据库、执行迁移、创建开发用户，并在给开发管理员授予
+   developer 身份后注册 demo 客户端。**它会重置现有开发账号的密码**，
+   详见根目录 README。已有数据库时也可分别执行 `mix ecto.migrate` 和
+   `mix dev.seed`。
 
-2. 在根目录注册本地客户端，记录输出的 `AUTHX_CLIENT_ID`：
-
-   ```sh
-   mix dev.register_oidc_demo
-   ```
-
-   命令只在 dev 环境可用；重复执行会复用配置完全一致的客户端。默认
-   回调为 `http://localhost:4001/auth/user/authx/callback`。动态客户端
-   注册和 CIMD 均关闭。
+2. demo 客户端由 `config/dev.exs` 的 `:demo_client_app` 固定配置，默认 id
+   为 `00000000-0000-7000-8000-000000000001`，默认回调为
+   `http://localhost:4001/auth/user/authx/callback`，可用
+   `AUTHX_DEMO_CALLBACK` 覆盖。重复执行 `mix dev.seed` 会复用并校验该
+   客户端。它归属于 `mix dev.seed` 授予的开发者身份（开发环境管理员）。
+   动态客户端注册（DCR）与 CIMD 均已关闭：客户端必须归属某个 developer，
+   只能由开发者身份创建，见 [OIDC 客户端管理](oidc-client-management.md)。
 
 3. 在根目录启动 Authx：
 
@@ -49,13 +48,13 @@ demo 与根项目共享 `deps/` 和根 `mix.lock`，但有独立的 `_build/`、
    mix phx.server
    ```
 
-4. 在另一个终端准备并启动 demo，将 `CLIENT_ID` 替换为步骤 2 的值：
+4. 在另一个终端准备并启动 demo：
 
    ```sh
    cd demo
    mix ecto.create
    mix ecto.migrate
-   AUTHX_CLIENT_ID=CLIENT_ID mix phx.server
+   AUTHX_CLIENT_ID=00000000-0000-7000-8000-000000000001 mix phx.server
    ```
 
 5. 打开 `http://localhost:4001`，点击「使用 Authx 登录」。在 Authx
@@ -63,7 +62,7 @@ demo 与根项目共享 `deps/` 和根 `mix.lock`，但有独立的 `_build/`、
    登录应显示同一 ID；如果 Authx 会话和授权仍有效，可能不会再次要求
    登录或同意。
 
-可通过 `AUTHX_ISSUER`、demo 的 `AUTHX_REDIRECT_URI` 和 Authx 注册任务的
+可通过 `AUTHX_ISSUER`、demo 的 `AUTHX_REDIRECT_URI` 和 `mix dev.seed` 的
 `AUTHX_DEMO_CALLBACK` 调整本地地址；三者必须与实际监听地址和完整回调
 一致。`AUTHX_DEV_DATABASE` 和 `DEMO_DEV_DATABASE` 可分别覆盖开发数据库名。
 
@@ -166,7 +165,9 @@ email scope 和错误回调；demo 测试覆盖身份关联与 email 更新。
 
 - 这是**本地 demo**，生产路由默认关闭。仅支持预注册的公开客户端
   `none`，不支持客户端密钥认证、OIDC refresh token 或全局注销。
-- RS256 私钥只在 Authx 进程内生成；重启后公钥改变，尚未实现持久化或
-  密钥轮换。不应将此密钥管理方式用于生产。
+- 默认 demo 的 RS256 私钥在进程内生成，重启后公钥改变。本地生产模式可
+  加载固定私钥文件，但尚未实现密钥轮换，不应对外用于正式生产。
 - 生产启用前仍需独立安全审查、标准兼容性测试、HTTPS、持久密钥及轮换、
   客户端管理、速率限制、审计和注销语义。不要将开发凭据用于生产。
+- 分阶段实施和上线门禁见 [OIDC 生产化与上线计划](oidc-production.md)。
+- 本地动态注册和管理员职责见 [OIDC 客户端管理](oidc-client-management.md)。

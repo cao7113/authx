@@ -60,7 +60,16 @@ config :authx, AuthxWeb.Endpoint,
 config :authx,
   dev_routes: true,
   oauth2_demo_routes: true,
-  dev_login_defaults: %{email: "admin@l.h", password: "password123456"},
+  dev_login_defaults: %{
+    email: "admin@l.h",
+    user_email: "dev@l.h",
+    password: "password123456"
+  },
+  demo_client_app: %{
+    client_id: "00000000-0000-7000-8000-000000000001",
+    client_name: "Authx local OIDC demo",
+    redirect_uri: "http://localhost:4001/auth/user/authx/callback"
+  },
   token_signing_secret: "v2LTXuwOk3DduqIn+gU3PF6k+Ne5MzDA",
   oauth2_issuer_url: "http://localhost:4000",
   oauth2_resource_url: "http://localhost:4000",
