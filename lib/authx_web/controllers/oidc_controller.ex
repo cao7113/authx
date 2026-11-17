@@ -23,8 +23,8 @@ defmodule AuthxWeb.OidcController do
       response_types_supported: ["code"],
       subject_types_supported: ["public"],
       id_token_signing_alg_values_supported: ["RS256"],
-      scopes_supported: ["openid", "email"],
-      claims_supported: ["sub", "email", "email_verified"],
+      scopes_supported: ["openid", "email", "profile"],
+      claims_supported: ["sub", "email", "email_verified", "updated_at"],
       grant_types_supported: ["authorization_code"],
       token_endpoint_auth_methods_supported: ["none"],
       code_challenge_methods_supported: ["S256"]
@@ -111,6 +111,7 @@ defmodule AuthxWeb.OidcController do
           "nonce" => code.nonce
         }
         |> add_email(user, code.scope)
+        |> add_profile(user, code.scope)
 
       conn
       |> put_resp_header("cache-control", "no-store")
@@ -137,7 +138,12 @@ defmodule AuthxWeb.OidcController do
 
   def userinfo(conn, _) do
     user = Ash.PlugHelpers.get_actor(conn)
-    claims = %{"sub" => user.id} |> add_email(user, conn.assigns.oauth_claims["scope"])
+
+    claims =
+      %{"sub" => user.id}
+      |> add_email(user, conn.assigns.oauth_claims["scope"])
+      |> add_profile(user, conn.assigns.oauth_claims["scope"])
+
     conn |> put_resp_header("cache-control", "no-store") |> json(claims)
   end
 
@@ -226,6 +232,16 @@ defmodule AuthxWeb.OidcController do
         "email" => to_string(user.email),
         "email_verified" => not is_nil(user.confirmed_at)
       })
+    else
+      claims
+    end
+  end
+
+  defp add_profile(claims, user, scope) do
+    if "profile" in String.split(scope, " ", trim: true) do
+      # OIDC Core §5.1 的 profile 声明。当前用户模型只持久化了 updated_at，
+      # 因此只下发有真实数据支撑的声明；新增 name/nickname 等字段时在此扩展。
+      Map.put(claims, "updated_at", DateTime.to_unix(user.updated_at))
     else
       claims
     end

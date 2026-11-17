@@ -17,7 +17,7 @@ defmodule Authx.Fixtures do
     grant_types: ["authorization_code"],
     response_types: ["code"],
     token_endpoint_auth_method: "none",
-    scope: "openid email"
+    scope: "openid email profile"
   }
 
   @doc "The client metadata used by `register_client/2`."

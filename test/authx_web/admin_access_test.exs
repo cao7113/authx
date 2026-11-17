@@ -10,7 +10,7 @@ defmodule AuthxWeb.AdminAccessTest do
     member = create_user("member-access@example.com")
     assert {:ok, _} = Admins.bootstrap(to_string(admin.email))
 
-    for path <- ["/admin", "/admin/dashboard", "/admin/dashboard/home", "/oban", "/manage/users"] do
+    for path <- ["/admin", "/admin/dashboard", "/admin/dashboard/home", "/oban"] do
       assert redirected_to(get(conn, path)) == "/"
       assert redirected_to(get(signed_in_conn(member), path)) == "/"
     end
@@ -25,7 +25,6 @@ defmodule AuthxWeb.AdminAccessTest do
 
     assert Enum.empty?(guest["#admin-tools"])
     assert Enum.empty?(member_home["#admin-tools"])
-    assert LazyHTML.attribute(admin_home["#admin-users-link"], "href") == ["/manage/users"]
     assert LazyHTML.attribute(admin_home["#admin-dashboard-link"], "href") == ["/admin"]
     assert LazyHTML.attribute(admin_home["#live-dashboard-link"], "href") == ["/admin/dashboard"]
     assert LazyHTML.attribute(admin_home["#oban-dashboard-link"], "href") == ["/oban"]
@@ -38,26 +37,6 @@ defmodule AuthxWeb.AdminAccessTest do
 
     assert {:ok, _view, _html} = live(signed_in_conn(admin), "/admin")
     assert {:ok, _view, _html} = live(signed_in_conn(admin), "/admin/dashboard/home")
-    assert {:ok, _view, _html} = live(signed_in_conn(admin), "/manage/users")
-  end
-
-  test "role management works and revoking access closes active sessions" do
-    admin = create_user("admin-manager@example.com")
-    member = create_user("member-manager@example.com")
-    assert {:ok, _} = Admins.bootstrap(to_string(admin.email))
-    {:ok, view, _html} = live(signed_in_conn(admin), "/manage/users")
-
-    view
-    |> form("#admin-user-search", search: %{email: to_string(member.email)})
-    |> render_submit()
-
-    assert has_element?(view, "#admin-selected-user")
-    view |> element("#admin-toggle-role") |> render_click()
-    assert Admins.admin?(member.id)
-
-    {:ok, member_view, _html} = live(signed_in_conn(member), "/manage/users")
-    assert {:ok, _} = Admins.set_role(admin.id, member.id, :user)
-    assert_redirect(member_view, "/")
   end
 
   test "dashboard sessions close on role revocation and sign out" do

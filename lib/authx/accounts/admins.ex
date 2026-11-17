@@ -48,14 +48,6 @@ defmodule Authx.Accounts.Admins do
     end
   end
 
-  def find_by_email(actor, email) when is_binary(email) do
-    read_by_email(email, :get_by_email_as_admin,
-      actor: actor,
-      authorize?: true,
-      authorize_with: :error
-    )
-  end
-
   def set_role(actor_id, user_id, role) when role in [:user, :admin] do
     with {:ok, actor_id} <- Ecto.UUID.cast(actor_id),
          {:ok, user_id} <- Ecto.UUID.cast(user_id),

@@ -21,7 +21,7 @@ Authx 内有两个授权服务器配置模块，分别应对不同的场景：
      │      (OAuth 2.1)       │                      │        (OIDC 1.0)      │
      ├────────────────────────┤                      ├────────────────────────┤
      │ • 面向 API/资源授权    │                      │ • 面向用户身份认证 (IdP)│
-     │ • Scope: ["mcp"]       │                      │ • Scopes: openid, email│
+     │ • Scope: ["mcp"]       │                      │ • 3 个 scope           │
      │ • 对外路由: /oauth/*   │                      │ • 对外路由: /oidc/*, discovery│
      │ • 动态注册: 关闭 (DCR) │                      │ • 动态注册: 关闭 (DCR/CIMD) │
      │ • 自动挂载协议路由     │                      │ • 配合 Oidc.Keys 签发Token   │
@@ -46,7 +46,8 @@ Authx 内有两个授权服务器配置模块，分别应对不同的场景：
   - `/oidc/userinfo` (Bearer 认证获取最终用户 claims)
 - **密钥基础设施**：配合 `Authx.Oauth.Oidc.Keys`（GenServer 管理的 RS256 密钥对），负责对 OpenID Connect 的 `id_token` 执行非对称加密签名。
 - **配置特点**：
-  - `scopes: ["openid", "email"]`
+  - `scopes: ["openid", "email", "profile"]`，scope 语义、校验路径与 claim 下发见
+    [OIDC Scope 实现说明](oidc-scopes.md)
   - `dcr_enabled?: false`、`cimd_enabled?: false`：客户端必须归属于某个 developer，只能由开发者身份创建，见 [OIDC 客户端管理](oidc-client-management.md)
 
 ---

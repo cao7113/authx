@@ -10,8 +10,10 @@ Authx 的 discovery、JWKS、授权、token 和 UserInfo 端点分别位于
 `/.well-known/openid-configuration`、`/oidc/jwks`、`/oidc/authorize`、
 `/oidc/token` 和 `/oidc/userinfo`。ID Token 使用 RS256，包含签发方、
 用户 ID、客户端 audience、过期时间和请求绑定的 nonce；申请 `email`
-scope 时还包含 email 和 email_verified。UserInfo 使用独立 audience 的
-access token，且只在授权 `email` 时返回 email。
+scope 时还包含 email 和 email_verified，申请 `profile` scope 时包含
+updated_at。UserInfo 使用独立 audience 的
+access token，且只在授权对应 scope 时返回相应 claim。scope 详情见
+[OIDC Scope 实现说明](oidc-scopes.md)。
 
 demo 的 AshAuthentication OIDC strategy 验证 ID Token，并按 `(issuer, sub)`
 关联本地用户；email 是可更新属性，不按 email 自动合并账号。退出 demo

@@ -24,6 +24,7 @@ defmodule AuthxDemo.Accounts.User do
         client_id(AuthxDemo.Secrets)
         base_url(AuthxDemo.Secrets)
         redirect_uri(AuthxDemo.Secrets)
+
         client_authentication_method("none")
         code_verifier(true)
         nonce(true)
@@ -61,6 +62,9 @@ defmodule AuthxDemo.Accounts.User do
     attribute(:issuer, :string, allow_nil?: false, public?: true)
     attribute(:subject, :string, allow_nil?: false, public?: true)
     attribute(:email, :string, allow_nil?: false, public?: true)
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
   end
 
   identities do

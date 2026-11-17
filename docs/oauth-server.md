@@ -9,6 +9,8 @@ The development-only OIDC endpoints and client are described in
 mix igniter.install ash_authentication_oauth2_server
 ```
 
+- http://localhost:4000/.well-known/openid-configuration
+
 ```
 Notices:
 

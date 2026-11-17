@@ -63,7 +63,9 @@ Authx 的管理员权限不会自动成为客户端应用的管理员权限；�
   的服务。当前 OIDC 场景中的 UserInfo 端点由 Authx 提供；其他业务 API
   是否作为资源服务器及其授权方式需单独设计。
 
-`openid` 是 OIDC 身份请求；`email` 是请求邮箱相关声明的 scope。
+`openid` 是 OIDC 身份请求；`email` 请求邮箱相关声明；`profile` 请求标准资料
+声明（当前下发 `updated_at`）。scope 的完整语义见
+[OIDC Scope 实现说明](oidc-scopes.md)。
 ID Token 供客户端验证用户身份，access token 用于访问指定资源；
 两者不能互换。客户端按已验证的 `(issuer, sub)` 识别外部身份，不应仅
 按 email 自动合并账号。当前实现发布 `public` subject；应用内部用户 ID
@@ -179,7 +181,7 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
 
 ### 管理后台与开发者控制台
 
-- **admin 后台：** 仅 admin 可访问，用现有用户管理页面或 Ash Admin
+- **admin 后台：** 仅 admin 可访问，统一使用 Ash Admin
   完成用户管理、developer 角色的手动授予和撤销，以及 Authx 系统管理。
   具体复用方式取决于能否安全传递真实登录身份并实施资源策略。
 - **开发者控制台：** 是首版必需的独立前端入口，不是 Ash Admin。
@@ -281,7 +283,7 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
   `token_endpoint_auth_method` 只允许 `none`。grant_types、response_types
   和 scope 的限制仍待实现。
 - 仅支持 `authorization_code`、公开客户端 `none`、S256 PKCE，以及
-  `openid` / `email` scope；不签发客户端密钥或 OIDC refresh token。
+  `openid` / `email` / `profile` scope；不签发客户端密钥或 OIDC refresh token。
   此限制同样适用于服务端应用的本地测试。
 - 授权请求必须使用已登记的完整回调地址。注册信息存入 Authx 数据库；
   developer 资格由管理员手动授予，没有可配置的应用审核。

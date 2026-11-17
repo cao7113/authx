@@ -120,15 +120,10 @@ defmodule AuthxWeb.Layouts do
             >
               <div class="rounded-xl border border-[#dfe8db] bg-white p-1.5 shadow-lg shadow-[#1d4936]/10">
                 <.link
-                  id="admin-users-link"
-                  href={~p"/manage/users"}
-                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
-                >
-                  用户管理
-                </.link>
-                <.link
                   id="admin-dashboard-link"
                   href="/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
                 >
                   Ash Admin
@@ -136,6 +131,8 @@ defmodule AuthxWeb.Layouts do
                 <.link
                   id="live-dashboard-link"
                   href={~p"/admin/dashboard"}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
                 >
                   Live Dashboard
@@ -143,6 +140,8 @@ defmodule AuthxWeb.Layouts do
                 <.link
                   id="oban-dashboard-link"
                   href="/oban"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
                 >
                   Oban

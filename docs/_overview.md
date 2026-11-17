@@ -4,6 +4,7 @@
 
 生产化计划和上线门禁见 [OIDC 生产化与上线计划](oidc-production.md)。
 管理员与客户端注册的设计见 [OIDC 客户端管理](oidc-client-management.md)。
+scope 的语义与实现见 [OIDC Scope 实现说明](oidc-scopes.md)。
 
 ## todo
 

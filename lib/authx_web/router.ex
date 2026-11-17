@@ -87,15 +87,6 @@ defmodule AuthxWeb.Router do
   scope "/", AuthxWeb do
     pipe_through :browser
 
-    ash_authentication_live_session :admin_user_routes,
-      on_mount: [{AuthxWeb.AdminAuth, :user}] do
-      live "/manage/users", AdminUsersLive, :index
-    end
-  end
-
-  scope "/", AuthxWeb do
-    pipe_through :browser
-
     ash_authentication_live_session :authenticated_routes do
       # in each liveview, add one of the following at the top of the module:
       #

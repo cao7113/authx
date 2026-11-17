@@ -14,7 +14,7 @@ defmodule AuthxWeb.OidcRoutesTest do
     client =
       register_client(developer, %{
         client_name: "OIDC test",
-        scope: "openid email"
+        scope: "openid email profile"
       })
 
     user =
@@ -49,7 +49,7 @@ defmodule AuthxWeb.OidcRoutesTest do
     client: client,
     user: user
   } do
-    code = authorize(client, user, "openid email", "nonce-1")
+    code = authorize(client, user, "openid email profile", "nonce-1")
     params = token_params(client, code)
 
     invalid =
@@ -68,6 +68,7 @@ defmodule AuthxWeb.OidcRoutesTest do
     assert jwt.fields["nonce"] == "nonce-1"
     assert jwt.fields["email"] == "oidc-test@example.com"
     assert jwt.fields["email_verified"] == false
+    assert jwt.fields["updated_at"] == DateTime.to_unix(user.updated_at)
 
     info =
       build_conn()
@@ -78,7 +79,8 @@ defmodule AuthxWeb.OidcRoutesTest do
     assert info == %{
              "sub" => user.id,
              "email" => "oidc-test@example.com",
-             "email_verified" => false
+             "email_verified" => false,
+             "updated_at" => DateTime.to_unix(user.updated_at)
            }
 
     assert %{"error" => "invalid_grant"} =
@@ -88,7 +90,7 @@ defmodule AuthxWeb.OidcRoutesTest do
   end
 
   test "email is not disclosed without the email scope", %{client: client, user: user} do
-    code = authorize(client, user, "openid", "nonce-2")
+    code = authorize(client, user, "openid profile", "nonce-2")
     result = build_conn() |> post("/oidc/token", token_params(client, code)) |> json_response(200)
     %{"keys" => [public]} = build_conn() |> get("/oidc/jwks") |> json_response(200)
 
@@ -96,6 +98,8 @@ defmodule AuthxWeb.OidcRoutesTest do
              JOSE.JWT.verify_strict(JOSE.JWK.from_map(public), ["RS256"], result["id_token"])
 
     refute Map.has_key?(jwt.fields, "email")
+    refute Map.has_key?(jwt.fields, "email_verified")
+    assert jwt.fields["updated_at"] == DateTime.to_unix(user.updated_at)
 
     info =
       build_conn()
@@ -103,7 +107,36 @@ defmodule AuthxWeb.OidcRoutesTest do
       |> get("/oidc/userinfo")
       |> json_response(200)
 
-    assert info == %{"sub" => user.id}
+    assert info == %{
+             "sub" => user.id,
+             "updated_at" => DateTime.to_unix(user.updated_at)
+           }
+  end
+
+  test "profile claims are not disclosed without the profile scope", %{
+    client: client,
+    user: user
+  } do
+    code = authorize(client, user, "openid email", "nonce-3")
+    result = build_conn() |> post("/oidc/token", token_params(client, code)) |> json_response(200)
+    %{"keys" => [public]} = build_conn() |> get("/oidc/jwks") |> json_response(200)
+
+    assert {true, jwt, _} =
+             JOSE.JWT.verify_strict(JOSE.JWK.from_map(public), ["RS256"], result["id_token"])
+
+    refute Map.has_key?(jwt.fields, "updated_at")
+
+    info =
+      build_conn()
+      |> put_req_header("authorization", "Bearer " <> result["access_token"])
+      |> get("/oidc/userinfo")
+      |> json_response(200)
+
+    assert info == %{
+             "sub" => user.id,
+             "email" => "oidc-test@example.com",
+             "email_verified" => false
+           }
   end
 
   test "missing nonce and redirect URI mismatch are rejected", %{client: client, user: user} do

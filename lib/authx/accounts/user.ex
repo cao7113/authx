@@ -205,12 +205,6 @@ defmodule Authx.Accounts.User do
       get_by :email
     end
 
-    read :get_by_email_as_admin do
-      argument :email, :ci_string, allow_nil?: false
-      get? true
-      filter expr(email == ^arg(:email))
-    end
-
     update :set_admin_role do
       require_atomic? false
       accept []
@@ -294,10 +288,6 @@ defmodule Authx.Accounts.User do
   end
 
   policies do
-    policy action(:get_by_email_as_admin) do
-      authorize_if Authx.Accounts.Checks.AdminCheck
-    end
-
     policy action(:set_admin_role) do
       authorize_if Authx.Accounts.Checks.AdminCheck
     end
@@ -330,6 +320,9 @@ defmodule Authx.Accounts.User do
       default :user
       constraints one_of: [:user, :admin]
     end
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
   end
 
   relationships do
