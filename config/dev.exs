@@ -59,7 +59,6 @@ config :authx, AuthxWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :authx,
   dev_routes: true,
-  oauth2_demo_routes: true,
   dev_login_defaults: %{
     email: "admin@l.h",
     user_email: "dev@l.h",
@@ -69,6 +68,12 @@ config :authx,
     client_id: "00000000-0000-7000-8000-000000000001",
     client_name: "Authx local OIDC demo",
     redirect_uri: "http://localhost:4001/auth/user/authx/callback"
+  },
+  foo_client_app: %{
+    client_id: "00000000-0000-7000-8000-000000000002",
+    client_name: "Authx Foo local OIDC client",
+    redirect_uri: "http://localhost:4002/auth/user/authx/callback",
+    callback_env: "AUTHX_FOO_CALLBACK"
   },
   token_signing_secret: "v2LTXuwOk3DduqIn+gU3PF6k+Ne5MzDA",
   oauth2_issuer_url: "http://localhost:4000",

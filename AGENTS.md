@@ -5,6 +5,24 @@ This is a web application written using the Phoenix web framework.
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
+## Query & Retrieval Function Naming Conventions
+
+When defining database or context query functions (e.g., in Phoenix Contexts), adhere strictly to the following return type contracts:
+
+* **`get_*` / `get_*!` / `get_*_by_*`**: Direct lookup by primary key, unique identifier, or specific attributes.
+  * `get_user(id)` -> Returns `%User{}` or `nil`.
+  * `get_user!(id)` -> Returns `%User{}` or raises `Ecto.NoResultsError`.
+  * `get_user_by_email(email)` -> Returns `%User{}` or `nil`.
+* **`fetch_*` / `fetch_*_by_*`**: Strict lookup returning a wrapped tagged tuple, enforcing explicit pattern matching (e.g., inside `with` statements). Note: `fetch` does not have a bang (`!`) variant.
+  * `fetch_user(id)` -> Returns `{:ok, %User{}}` or `{:error, :not_found}`.
+  * `fetch_user_by_email(email)` -> Returns `{:ok, %User{}}` or `{:error, :not_found}`.
+* **`find_*` / `find_*!` / `find_*_by_*`**: Conditional search (semantically aligned with `get`, used for explicit query or search semantics).
+  * `find_user(id)` -> Returns `%User{}` or `nil`.
+  * `find_user!(id)` -> Returns `%User{}` or raises an error if not found.
+  * `find_user_by_email(email)` -> Returns `%User{}` or `nil`.
+* **`list_*`**: Collection retrieval.
+  * `list_users(filters \\ %{})` -> Always returns a list `[%User{}, ...]` (returns `[]` if none found, never `nil`).
+
 ### Phoenix v1.8 guidelines
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content

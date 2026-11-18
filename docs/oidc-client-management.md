@@ -91,7 +91,8 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
    注册后立即可用，没有应用审核，也不等同于用户已同意授权。
    **当前：** developer 角色与客户端归属已落地，注册须以开发者身份
    （`Authx.Developers.Developer` 作为 actor）执行；开发者控制台尚未实现，
-   本地开发由 `mix dev.seed` 以开发开发者身份注册。
+   本地开发由 `mix dev.seed` 注册，生产环境在 remote shell 中用
+   `Authx.Ops.ensure_client/3` 注册（见 [Ops](ops.md)）。
 2. 最终用户从应用发起登录，应用带 `state`、`nonce` 和 PKCE 跳转 Authx。
    用户的 Authx 凭据提交给 Authx，而不是客户端应用。
 3. Authx 校验客户端和回调，必要时让用户登录并同意所请求的 scope；已有
@@ -110,16 +111,23 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
   `OauthConsent` 按用户和客户端保存 scope。
   `demo/` 使用独立数据库，并以 `(issuer, sub)` 关联本地身份。
 - **管理入口**：`/admin` 已挂载 Ash Admin，HTTP 入口和 LiveView 均检查
-  管理员身份；`Authx.Accounts` 已向 Ash Admin 显示。普通用户不应能进入
-  管理入口。
-- **客户端归属**：`Authx.Oauth.Client` 的 `developer_id` 为必填外键，
-  每个客户端恰好属于一个 developer。创建只经过 `Authx.Oauth.Client` 的
+  管理员身份；`Authx.Accounts` 已向 Ash Admin 显示。生产环境没有 Mix，
+  开发者授权与客户端操作在 remote shell 中通过 `Authx.Ops` 的
+  `grant_developer/2`、`ensure_client/2` 执行（见 [Ops](ops.md)）；`Authx.Ops` 负责按 email 解析用户和 developer，再调用
+  `Authx.Developers` / `Authx.Oauth.Clients`，这些操作仍以解析出的
+  admin/developer 作为 actor 走策略。
+  普通用户不应能进入管理入口。
+- **客户端归属**：`Authx.Oauth.Resources.Client` 的 `developer_id` 为必填外键，
+  每个客户端恰好属于一个 developer。创建只经过 `Authx.Oauth.Resources.Client` 的
   `:register` action：actor 必须是当前有效的 `Developer`，归属由 actor
   决定且不能作为输入提交（`developer_id` 不在 accept 列表中，且不可写）。
   读取受策略限制为「当前有效 developer 且是该客户端属主」，因此不同
   developer 之间互不可见；普通用户、匿名访问和未获 developer 资格的管理员
-  都看不到客户端。创建时在资源 action 内校验安全关键项：回调 URI 必须是
-  带 host 的 HTTPS（或本机回环地址的 HTTP）且不含 fragment，
+  都看不到客户端。更新通过 `:update` action（上下文入口
+  `Authx.Oauth.Clients.update/3`）执行，接受与注册相同的元数据字段，策略
+  同样是「当前有效 developer 且为属主」；归属不能通过输入修改。创建和
+  更新时都在资源 action 内校验安全关键项：回调 URI 必须是带 host 的
+  HTTPS（或本机回环地址的 HTTP）且不含 fragment，
   `token_endpoint_auth_method` 只允许 `none`；grant_types、response_types
   和 scope 的限制仍待实现。
 - **动态注册已关闭**：DCR（`/oidc/register`）与 CIMD 都已关闭，discovery
@@ -271,12 +279,11 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
 
 ## 当前本地协议能力
 
-- 设置 `AUTHX_LOCAL_OIDC=true`（测试环境由 `oauth2_demo_routes` 开启）
-  才开放 `/oidc/*` 端点并发布 discovery；未开启时这些入口返回 404，
-  discovery 也不发布 `registration_endpoint`。该开关只用于本机环境，
-  不代表正式生产可用。
+- `/oidc/*` 端点始终挂载并发布 discovery；生产部署需要配置 issuer、签名
+  密钥和私钥文件后才能正常签发令牌。discovery 不发布
+  `registration_endpoint`，也不提供动态注册。
 - 不提供动态客户端注册：`/oidc/register` 路由与共享注册令牌机制已移除。
-  客户端由当前有效的 developer 通过 `Authx.Oauth.register_client/3`
+  客户端由当前有效的 developer 通过 `Authx.Oauth.Clients.register/3`
   （开发者控制台待实现）创建，归属由 actor 决定。
 - 创建时校验回调 URI 与认证方式：回调必须是带 host 的 HTTPS，或
   `localhost` / `127.0.0.1` / `::1` 的 HTTP，且不允许 fragment；
@@ -301,22 +308,30 @@ mix dev.setup
 `mix dev.seed` 注册的 demo 客户端由 `config/dev.exs` 的 `:demo_client_app`
 配置：id 固定为 `00000000-0000-7000-8000-000000000001`，默认回调为
 `http://localhost:4001/auth/user/authx/callback`，可用
-`AUTHX_DEMO_CALLBACK` 覆盖。重复执行会复用该客户端并校验配置一致；若
-存在不同 id 的同名客户端或配置不一致，任务会报错要求先检查或删除。
+`AUTHX_DEMO_CALLBACK` 覆盖。同一任务还会注册 `:foo_client_app` 配置的本地
+foo 客户端（id `00000000-0000-7000-8000-000000000002`，默认回调
+`http://localhost:4002/auth/user/authx/callback`，可用
+`AUTHX_FOO_CALLBACK` 覆盖），接入步骤见
+[Authx Foo 接入 Authx OIDC](authx-foo-oidc-client.md)。重复执行会复用这些
+客户端并校验配置一致；若存在不同 id 的同名客户端或配置不一致，任务会
+报错要求先检查或删除。
 
-启动服务，并显式开启本地 OIDC 端点：
+启动服务（开发环境已默认开启本地 OIDC 端点）：
 
 ```sh
-export AUTHX_LOCAL_OIDC=true
 mix phx.server
 ```
 
-开发环境默认 issuer 为 `http://localhost:4000`，可用 `AUTHX_ISSUER`
-设置实际地址；当使用 `https://authx.s` 时，必须自行配置本机 DNS、可信
-证书和仅本机可访问的代理。不要将开发默认账号或密钥暴露到公网。
+开发环境 issuer 固定为 `config/dev.exs` 中的 `http://localhost:4000`；如需
+改用 `https://authx.s`，请修改该配置，并自行配置本机 DNS、可信证书和仅
+本机可访问的代理。不要将开发默认账号或密钥暴露到公网。
 
 固定的 `client_id` 可直接用于发起 authorization code + S256 PKCE 流程。
-客户端登录示例见 [OIDC client demo](client-demo.md)。
+客户端登录示例见 [OIDC client demo](client-demo.md)。客户端认证方式的威胁
+模型与扩展建议见
+[OIDC 客户端认证与公开客户端威胁模型](oidc-client-authentication.md)；
+浏览器插件的登录与 API 授权模型见
+[浏览器插件接入 Authx OIDC](browser-extension-oidc.md)。
 
 ## 后续工作
 

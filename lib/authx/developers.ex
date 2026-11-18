@@ -50,6 +50,65 @@ defmodule Authx.Developers do
   defp with_actor(opts, admin_actor), do: Keyword.put(opts, :actor, admin_actor)
 
   @doc """
+  Finds the developer record belonging to the given user email.
+
+  Returns the developer or `nil` when the user has no developer record.
+  Lookup failures are raised.
+  """
+  def find_developer_by_user_email(email) when is_binary(email) do
+    Authx.Developers.Developer
+    |> Ash.Query.for_read(:get_by_user_email, %{email: String.trim(email)})
+    |> Ash.read_one(authorize?: false)
+    |> case do
+      {:ok, nil} -> nil
+      {:ok, developer} -> developer
+      {:error, error} -> raise error
+    end
+  end
+
+  @doc """
+  Fetches the developer record belonging to the given user email.
+
+  Returns `{:ok, developer}` or `{:error, :not_found}`.
+  """
+  def fetch_developer_by_user_email(email) when is_binary(email) do
+    case find_developer_by_user_email(email) do
+      nil -> {:error, :not_found}
+      developer -> {:ok, developer}
+    end
+  end
+
+  @doc """
+  Finds the developer record belonging to the given user ID.
+
+  Returns the developer or `nil` when the user has no developer record.
+  Lookup failures are raised.
+  """
+  def find_developer_by_user_id(user_id) when is_binary(user_id) do
+    Authx.Developers.Developer
+    |> Ash.Query.for_read(:get_by_user_id, %{user_id: user_id})
+    |> Ash.read_one(authorize?: false)
+    |> case do
+      {:ok, nil} -> nil
+      {:ok, developer} -> developer
+      {:error, error} -> raise error
+    end
+  end
+
+  @doc """
+  Ensures `user` has developer access, granting it as `admin`.
+
+  The administrator is passed as the actor so admin policies still apply.
+  Granting an existing developer is a no-op.
+  """
+  def ensure_developer(%Authx.Accounts.User{} = user, %Authx.Accounts.User{} = admin) do
+    case find_developer_by_user_id(user.id) do
+      nil -> grant_developer(user, admin)
+      developer -> {:ok, developer}
+    end
+  end
+
+  @doc """
   Checks if the given developer record (or developer ID) is active.
 
   Developer-facing actions take a `Authx.Developers.Developer` as their actor,

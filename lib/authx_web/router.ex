@@ -39,10 +39,6 @@ defmodule AuthxWeb.Router do
     plug :accepts, ["json"]
   end
 
-  pipeline :oidc_enabled do
-    plug :require_oidc_enabled
-  end
-
   pipeline :oidc_userinfo do
     plug AshAuthentication.Phoenix.Oauth2Server.BearerPlug, oauth2_server: Authx.Oauth.Oidc.Server
 
@@ -51,35 +47,33 @@ defmodule AuthxWeb.Router do
       scope: "openid"
   end
 
-  if Application.compile_env(:authx, :oauth2_demo_routes, false) do
-    scope "/" do
-      pipe_through [:browser, :oauth_browser]
-      oauth2_server_consent_routes(oauth2_server: Authx.Oauth.Server)
-    end
+  scope "/" do
+    pipe_through [:browser, :oauth_browser]
+    oauth2_server_consent_routes(oauth2_server: Authx.Oauth.Server)
+  end
 
-    scope "/" do
-      pipe_through [:api, :oauth_protocol]
+  scope "/" do
+    pipe_through [:api, :oauth_protocol]
 
-      forward "/oauth", AshAuthentication.Phoenix.Oauth2Server.ProtocolRouter,
-        oauth2_server: Authx.Oauth.Server
-    end
+    forward "/oauth", AshAuthentication.Phoenix.Oauth2Server.ProtocolRouter,
+      oauth2_server: Authx.Oauth.Server
   end
 
   scope "/", AuthxWeb do
-    pipe_through [:oidc_enabled, :browser, :oauth_browser]
+    pipe_through [:browser, :oauth_browser]
     get "/oidc/authorize", OidcController, :authorize
     post "/oidc/authorize", OidcController, :consent
   end
 
   scope "/", AuthxWeb do
-    pipe_through [:oidc_enabled, :oidc_api]
+    pipe_through [:oidc_api]
     get "/.well-known/openid-configuration", OidcController, :discovery
     get "/oidc/jwks", OidcController, :jwks
     post "/oidc/token", OidcController, :token
   end
 
   scope "/", AuthxWeb do
-    pipe_through [:oidc_enabled, :oidc_api, :oidc_userinfo]
+    pipe_through [:oidc_api, :oidc_userinfo]
     get "/oidc/userinfo", OidcController, :userinfo
     post "/oidc/userinfo", OidcController, :userinfo
   end
@@ -172,13 +166,4 @@ defmodule AuthxWeb.Router do
   end
 
   defp reject_incomplete_oidc_discovery(conn, _), do: conn
-
-  defp require_oidc_enabled(conn, _) do
-    if Application.get_env(:authx, :oauth2_demo_routes, false) or
-         Application.get_env(:authx, :local_oidc_enabled, false) do
-      conn
-    else
-      conn |> send_resp(404, "") |> halt()
-    end
-  end
 end

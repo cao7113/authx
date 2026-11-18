@@ -3,6 +3,7 @@ defmodule Authx.DevelopersTest do
 
   alias Authx.Accounts.User
   alias Authx.Developers
+  alias Authx.Developers.Developer
 
   describe "developer role grant & lookup" do
     test "admin can grant developer role to another user and lookup by id or email" do
@@ -118,6 +119,82 @@ defmodule Authx.DevelopersTest do
       refute Developers.developer?(nil)
       refute Developers.developer?("not-a-uuid")
       refute Developers.developer?(Ecto.UUID.generate())
+    end
+  end
+
+  describe "developer lookups" do
+    test "find_developer_by_user_email/1 returns the developer or nil" do
+      admin = create_user("lookup-admin@example.com", :admin)
+      user = create_user("lookup-dev@example.com", :user)
+      {:ok, developer} = Developers.grant_developer(user.id, admin)
+
+      assert %Developer{id: id} =
+               Developers.find_developer_by_user_email("lookup-dev@example.com")
+
+      assert id == developer.id
+
+      _plain = create_user("lookup-plain@example.com", :user)
+
+      assert Developers.find_developer_by_user_email("lookup-plain@example.com") == nil
+      assert Developers.find_developer_by_user_email("lookup-nobody@example.com") == nil
+    end
+
+    test "find_developer_by_user_id/1 returns the developer or nil" do
+      admin = create_user("lookup-id-admin@example.com", :admin)
+      user = create_user("lookup-id-dev@example.com", :user)
+      {:ok, developer} = Developers.grant_developer(user.id, admin)
+
+      assert %Developer{id: id} = Developers.find_developer_by_user_id(user.id)
+      assert id == developer.id
+
+      plain = create_user("lookup-id-plain@example.com", :user)
+
+      assert Developers.find_developer_by_user_id(plain.id) == nil
+      assert Developers.find_developer_by_user_id(Ecto.UUID.generate()) == nil
+    end
+
+    test "fetch_developer_by_user_email/1 returns :not_found when absent" do
+      admin = create_user("fetch-admin@example.com", :admin)
+      user = create_user("fetch-dev@example.com", :user)
+      {:ok, developer} = Developers.grant_developer(user.id, admin)
+
+      assert {:ok, found} = Developers.fetch_developer_by_user_email("fetch-dev@example.com")
+      assert found.id == developer.id
+
+      _plain = create_user("fetch-plain@example.com", :user)
+
+      assert {:error, :not_found} =
+               Developers.fetch_developer_by_user_email("fetch-plain@example.com")
+
+      assert {:error, :not_found} =
+               Developers.fetch_developer_by_user_email("fetch-nobody@example.com")
+    end
+  end
+
+  describe "ensure_developer/2" do
+    test "grants developer access using the administrator as the actor" do
+      admin = create_user("ensure-admin@example.com", :admin)
+      user = create_user("ensure-grantee@example.com", :user)
+
+      assert {:ok, developer} = Developers.ensure_developer(user, admin)
+      assert developer.user_id == user.id
+      assert developer.granted_by_user_id == admin.id
+    end
+
+    test "is idempotent for an existing developer" do
+      admin = create_user("ensure-idem-admin@example.com", :admin)
+      user = create_user("ensure-idem@example.com", :user)
+      {:ok, developer} = Developers.grant_developer(user.id, admin)
+
+      assert {:ok, again} = Developers.ensure_developer(user, admin)
+      assert again.id == developer.id
+    end
+
+    test "rejects a non-administrator actor" do
+      actor = create_user("ensure-not-admin@example.com", :user)
+      target = create_user("ensure-target@example.com", :user)
+
+      assert {:error, %Ash.Error.Forbidden{}} = Developers.ensure_developer(target, actor)
     end
   end
 

@@ -5,7 +5,7 @@ defmodule Authx.Fixtures do
 
   alias Authx.Accounts.User
   alias Authx.Developers
-  alias Authx.Oauth
+  alias Authx.Oauth.Clients
 
   @developer_email "developer@example.com"
   @password "test_password"
@@ -20,7 +20,7 @@ defmodule Authx.Fixtures do
     scope: "openid email profile"
   }
 
-  @doc "The client metadata used by `register_client/2`."
+  @doc "The client metadata used by `register/2`."
   def client_attrs, do: @client_attrs
 
   @doc "The redirect URI registered by test clients."
@@ -48,7 +48,7 @@ defmodule Authx.Fixtures do
 
   @doc "Registers a client owned by `developer`, with test defaults."
   def register_client(developer, attrs \\ %{}) do
-    {:ok, client} = Oauth.register_client(developer, Map.merge(@client_attrs, attrs))
+    {:ok, client} = Clients.register(developer, Map.merge(@client_attrs, attrs))
     client
   end
 end

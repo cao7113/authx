@@ -4,25 +4,27 @@ defmodule Mix.Tasks.Dev.Seed do
   require Ash.Query
 
   alias Authx.Accounts.{Admins, User}
-  alias Authx.Developers
-  alias Authx.Oauth.Client
+  alias Authx.Oauth.Clients
+  alias Authx.Ops
 
-  @shortdoc "Seeds development users and the local OIDC demo client"
+  @shortdoc "Seeds development users and local OIDC clients"
 
   @moduledoc """
   Creates or updates the local development user and administrator, grants the
-  administrator developer access, and registers the local OIDC demo client
-  owned by that developer.
+  administrator developer access, and registers the local OIDC clients owned by
+  that developer.
 
   The seed values come from `config :authx` in `config/dev.exs`:
 
     * `:dev_login_defaults` — administrator email, regular user email and the
       shared development password.
     * `:demo_client_app` — demo client id, name and default redirect URI.
+    * `:foo_client_app` — foo client id, name and default redirect URI.
 
-  The demo client always uses the configured fixed id, so local demo
-  applications can be configured once. Its redirect URI can be overridden at
-  runtime with `AUTHX_DEMO_CALLBACK`.
+  Every configured client always uses its fixed id, so local demo applications
+  can be configured once. A client's redirect URI can be overridden at runtime
+  with its `:callback_env` variable (for example `AUTHX_DEMO_CALLBACK` or
+  `AUTHX_FOO_CALLBACK`).
 
   This task is only available in the dev environment. It resets both users'
   passwords to the development fixture.
@@ -44,12 +46,15 @@ defmodule Mix.Tasks.Dev.Seed do
     seed_user!(user_email, hashed_password)
     admin = seed_user!(admin_email, hashed_password)
     ensure_admin!(admin.id, admin_email)
-    developer = ensure_developer!(admin)
-    client = ensure_demo_client!(developer)
+    developer = ensure_developer!(admin_email)
+    clients = Enum.map(client_configs(), &ensure_client!(developer, &1))
 
     Mix.shell().info(
       "Development users #{user_email} and #{admin_email} are ready " <>
-        "(admin is also a developer).\nAUTHX_CLIENT_ID=#{client.id}"
+        "(admin is also a developer).\n" <>
+        Enum.map_join(clients, "\n", fn client ->
+          "AUTHX_CLIENT_ID=#{client.id} (#{client.client_name})"
+        end)
     )
   end
 
@@ -88,92 +93,37 @@ defmodule Mix.Tasks.Dev.Seed do
     Mix.raise("Could not grant the development administrator role: #{inspect(error)}")
   end
 
-  defp ensure_developer!(%User{} = admin) do
-    if Developers.developer?(admin) do
-      {:ok, developer} = Developers.get_developer_by_user_id(admin.id, authorize?: false)
-      developer
-    else
-      case Developers.grant_developer(admin, admin) do
-        {:ok, developer} -> developer
-        {:error, error} -> Mix.raise("Could not grant the developer role: #{inspect(error)}")
-      end
+  defp ensure_developer!(email) do
+    case Ops.grant_developer(email, email) do
+      {:ok, developer} -> developer
+      {:error, reason} -> Mix.raise("Could not grant the developer role: #{inspect(reason)}")
     end
   end
 
-  defp ensure_demo_client!(developer) do
-    config = demo_config()
-    redirect_uri = System.get_env("AUTHX_DEMO_CALLBACK", config.redirect_uri)
-    attrs = demo_client_attrs(config.client_name, redirect_uri)
+  defp ensure_client!(developer, config) do
+    redirect_uri = System.get_env(callback_env(config), config.redirect_uri)
 
-    case Ash.get(Client, config.client_id, authorize?: false, not_found_error?: false) do
-      {:ok, nil} ->
-        ensure_no_legacy_demo_client!(config)
-        register_demo_client!(developer, attrs, config.client_id)
-
-      {:ok, client} ->
-        verify_demo_client!(client, attrs, developer, config.client_id)
-        client
-
-      {:error, error} ->
-        Mix.raise("Could not load the demo client: #{inspect(error)}")
-    end
-  end
-
-  defp demo_config, do: Application.fetch_env!(:authx, :demo_client_app)
-
-  defp demo_client_attrs(client_name, redirect_uri) do
-    %{
-      client_name: client_name,
-      redirect_uris: [redirect_uri],
-      grant_types: ["authorization_code"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-      scope: "openid email"
-    }
-  end
-
-  defp register_demo_client!(developer, attrs, client_id) do
-    Client
-    |> Ash.Changeset.for_create(:register, attrs, actor: developer)
-    |> Ash.Changeset.force_change_attribute(:id, client_id)
-    |> Ash.create(actor: developer)
-    |> case do
+    case Clients.ensure(developer, config.client_name, redirect_uri, id: config.client_id) do
       {:ok, client} ->
         client
 
-      {:error, error} ->
-        Mix.raise("Could not register the demo client #{client_id}: #{inspect(error)}")
-    end
-  end
-
-  defp verify_demo_client!(client, attrs, developer, client_id) do
-    expected = Map.put(attrs, :developer_id, developer.id)
-
-    if Map.take(client, Map.keys(expected)) == expected do
-      :ok
-    else
-      Mix.raise(
-        "Demo client #{client_id} has unexpected settings or owner; " <>
-          "inspect or delete it before re-running `mix dev.seed`"
-      )
-    end
-  end
-
-  defp ensure_no_legacy_demo_client!(%{client_name: name, client_id: client_id}) do
-    case Client
-         |> Ash.Query.filter(client_name == ^name and id != ^client_id)
-         |> Ash.read(authorize?: false) do
-      {:ok, []} ->
-        :ok
-
-      {:ok, clients} ->
+      {:error, reason} ->
         Mix.raise(
-          "Found #{length(clients)} demo client(s) without the fixed id " <>
-            "#{client_id}; delete them before re-running `mix dev.seed`"
+          "Could not ensure the client #{config.client_id}: #{inspect(reason)}; " <>
+            "inspect or delete it before re-running `mix dev.seed`"
         )
-
-      {:error, error} ->
-        Mix.raise("Could not check for existing demo clients: #{inspect(error)}")
     end
   end
+
+  defp client_configs do
+    [:demo_client_app, :foo_client_app]
+    |> Enum.flat_map(fn key ->
+      case Application.fetch_env(:authx, key) do
+        {:ok, config} -> [config]
+        :error -> []
+      end
+    end)
+  end
+
+  defp callback_env(config), do: Map.get(config, :callback_env, "AUTHX_DEMO_CALLBACK")
 end

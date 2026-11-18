@@ -66,7 +66,7 @@ demo 与根项目共享 `deps/` 和根 `mix.lock`，但有独立的 `_build/`、
 
 可通过 `AUTHX_ISSUER`、demo 的 `AUTHX_REDIRECT_URI` 和 `mix dev.seed` 的
 `AUTHX_DEMO_CALLBACK` 调整本地地址；三者必须与实际监听地址和完整回调
-一致。`AUTHX_DEV_DATABASE` 和 `DEMO_DEV_DATABASE` 可分别覆盖开发数据库名。
+一致。demo 的 `DEMO_DEV_DATABASE` 可覆盖其开发数据库名。
 
 ## 登录技术流程
 

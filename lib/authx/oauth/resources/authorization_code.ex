@@ -1,7 +1,7 @@
-defmodule Authx.Oauth.AuthorizationCode do
+defmodule Authx.Oauth.Resources.AuthorizationCode do
   use Ash.Resource,
     otp_app: :authx,
-    domain: Authx.Oauth,
+    domain: Authx.Oauth.Domain,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshAuthentication.Oauth2Server.AuthorizationCodeResource],
     authorizers: [Ash.Policy.Authorizer]
@@ -97,7 +97,7 @@ defmodule Authx.Oauth.AuthorizationCode do
       attribute_writable? true
     end
 
-    belongs_to :client, Authx.Oauth.Client do
+    belongs_to :client, Authx.Oauth.Resources.Client do
       source_attribute :client_id
       allow_nil? false
       attribute_writable? true

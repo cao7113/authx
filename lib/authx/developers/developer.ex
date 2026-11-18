@@ -27,9 +27,6 @@ defmodule Authx.Developers.Developer do
       argument :user_id, :uuid, allow_nil?: true
 
       change Authx.Developers.Changes.ResolveUserForGrant
-
-      # validate present(:user_id)
-      # validate present(:granted_by_user_id)
     end
 
     read :get_by_user_id do

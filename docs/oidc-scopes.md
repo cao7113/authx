@@ -17,8 +17,8 @@ Authx 中一次授权请求的 scope 必须同时满足三层约束：
 | 层 | 位置 | 作用 |
 |---|---|---|
 | 服务端目录 | `Authx.Oauth.Oidc.Server` 的 `scopes:` 选项 | 服务端支持哪些 scope；`enforce_scopes?: true`（默认）时请求的每个 token 必须在此列表内 |
-| 客户端白名单 | `Authx.Oauth.Client` 的 `scope` 字段 | 某个客户端被允许请求哪些 scope |
-| 用户同意 | `Authx.Oauth.Consent` 的 `scope` 字段 | 用户实际批准过哪些 scope |
+| 客户端白名单 | `Authx.Oauth.Resources.Client` 的 `scope` 字段 | 某个客户端被允许请求哪些 scope |
+| 用户同意 | `Authx.Oauth.Resources.Consent` 的 `scope` 字段 | 用户实际批准过哪些 scope |
 
 任何一层缺失都会导致请求失败或重新弹出同意页。此外，OIDC 请求**必须包含
 `openid`**，否则按普通 OAuth 2.0 处理，而 Authx 当前直接拒绝这种请求。
@@ -38,7 +38,7 @@ Authx 只注册了单 resource，因此 `aud` 固定为 `resource_url`。
 
 ### 1.2 客户端白名单
 
-`Authx.Oauth.Client.scope` 是空格分隔的字符串，由开发者在注册客户端时指定。
+`Authx.Oauth.Resources.Client.scope` 是空格分隔的字符串，由开发者在注册客户端时指定。
 授权请求会额外校验 `requested ⊆ client.scope`：
 
 ```elixir

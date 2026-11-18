@@ -13,13 +13,14 @@
 
 当前需要特别注意：
 
-- `oauth2_demo_routes` 仍是 OAuth demo 的编译时开关；OIDC 路由由运行时
-  开关控制。本地可显式启用 `AUTHX_LOCAL_OIDC`，但它不是正式生产配置。
+- OAuth2/OIDC 路由始终挂载；正式部署必须显式提供 `AUTHX_ISSUER`、
+  `AUTHX_OAUTH_SIGNING_SECRET` 和 `AUTHX_OIDC_PRIVATE_KEY_FILE`。对外开放前
+  仍须完成本文的上线门禁。
 - 默认 demo 的 ID Token RSA 密钥在进程启动时临时生成；受限本地生产模式
   可从文件加载固定密钥，但尚无轮换。OIDC access token 使用独立对称签名
   密钥，不由 JWKS 验证。
-- 本地生产模式只为 `https://authx.s` 提供受限配置；正式生产的 issuer、
-  资源地址及密钥管理仍须单独设计。
+- 受限本地生产模式的 issuer 默认是 `https://authx.s`，可用 `AUTHX_ISSUER`
+  覆盖；正式生产的 issuer、资源地址及密钥管理仍须单独设计。
 - 当前 OIDC token endpoint 仅支持公开客户端 `none`，没有 OIDC refresh
   token 或全局注销；依赖的 token 实现也不支持机密客户端认证。
 

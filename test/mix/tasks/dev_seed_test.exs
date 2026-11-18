@@ -2,12 +2,14 @@ defmodule Mix.Tasks.Dev.SeedTest do
   use Authx.DataCase, async: false
 
   alias Authx.Accounts.{Admins, User}
+  alias Authx.Oauth.Resources.Client
 
   setup do
     original_env = Mix.env()
     original_shell = Mix.shell()
     original_defaults = Application.fetch_env(:authx, :dev_login_defaults)
     original_demo = Application.fetch_env(:authx, :demo_client_app)
+    original_foo = Application.fetch_env(:authx, :foo_client_app)
 
     Mix.env(:dev)
     Mix.shell(Mix.Shell.Process)
@@ -24,6 +26,13 @@ defmodule Mix.Tasks.Dev.SeedTest do
       redirect_uri: "http://localhost:4001/auth/user/authx/callback"
     })
 
+    Application.put_env(:authx, :foo_client_app, %{
+      client_id: "00000000-0000-7000-8000-000000000002",
+      client_name: "Authx Foo local OIDC client",
+      redirect_uri: "http://localhost:4002/auth/user/authx/callback",
+      callback_env: "AUTHX_FOO_CALLBACK"
+    })
+
     on_exit(fn ->
       Mix.env(original_env)
       Mix.shell(original_shell)
@@ -36,6 +45,11 @@ defmodule Mix.Tasks.Dev.SeedTest do
       case original_demo do
         {:ok, demo} -> Application.put_env(:authx, :demo_client_app, demo)
         :error -> Application.delete_env(:authx, :demo_client_app)
+      end
+
+      case original_foo do
+        {:ok, foo} -> Application.put_env(:authx, :foo_client_app, foo)
+        :error -> Application.delete_env(:authx, :foo_client_app)
       end
     end)
 
@@ -68,6 +82,24 @@ defmodule Mix.Tasks.Dev.SeedTest do
 
     assert_raise Mix.Error, "mix dev.seed can only be run in the dev environment", fn ->
       Mix.Tasks.Dev.Seed.run([])
+    end
+  end
+
+  test "registers the configured local OIDC clients" do
+    Mix.Tasks.Dev.Seed.run([])
+
+    for {id, redirect_uri} <- [
+          {"00000000-0000-7000-8000-000000000001",
+           "http://localhost:4001/auth/user/authx/callback"},
+          {"00000000-0000-7000-8000-000000000002",
+           "http://localhost:4002/auth/user/authx/callback"}
+        ] do
+      assert {:ok, client} = Ash.get(Client, id, authorize?: false)
+      assert client.redirect_uris == [redirect_uri]
+      assert client.scope == "openid email"
+      assert client.token_endpoint_auth_method == "none"
+      assert client.grant_types == ["authorization_code"]
+      assert client.response_types == ["code"]
     end
   end
 

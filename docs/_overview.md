@@ -4,7 +4,17 @@
 
 生产化计划和上线门禁见 [OIDC 生产化与上线计划](oidc-production.md)。
 管理员与客户端注册的设计见 [OIDC 客户端管理](oidc-client-management.md)。
+用户自助撤销 OIDC 授权的设计见
+[用户侧 OIDC 授权撤销](oidc-consent-revocation.md)。
 scope 的语义与实现见 [OIDC Scope 实现说明](oidc-scopes.md)。
+ID Token 的签名密钥、JWKS 发布与轮换限制见
+[OIDC ID Token 签名密钥](oidc-signing-keys.md)。
+公开客户端的威胁模型与其他客户端认证方式的增强建议见
+[OIDC 客户端认证与公开客户端威胁模型](oidc-client-authentication.md)。
+浏览器插件接入与业务 API 授权模型见
+[浏览器插件接入 Authx OIDC](browser-extension-oidc.md)。
+本地 demo 与 foo 的接入步骤分别见 [OIDC client demo](client-demo.md) 和
+[Authx Foo 接入 Authx OIDC](authx-foo-oidc-client.md)。
 
 ## todo
 

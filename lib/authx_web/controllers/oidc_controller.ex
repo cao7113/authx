@@ -1,10 +1,12 @@
 defmodule AuthxWeb.OidcController do
   use AuthxWeb, :controller
 
+  require Logger
+
   alias AshAuthentication.Oauth2Server.{Authorize, Token}
   alias AshAuthentication.Phoenix.Oauth2Server.{ConsentView, Errors}
   alias Authx.Accounts.User
-  alias Authx.Oauth.AuthorizationCode
+  alias Authx.Oauth.Resources.AuthorizationCode
   alias Authx.Oauth.Oidc.{Keys, Server}
 
   @auth_context %{private: %{ash_authentication?: true}}
@@ -55,13 +57,19 @@ defmodule AuthxWeb.OidcController do
           end
       end
     else
-      {:error, _, _, _} ->
+      {:error, kind, code, description} ->
+        Logger.warning("OIDC authorization rejected (#{inspect(kind)}): #{code} - #{description}")
+
         Errors.send_oauth_error(conn, 400, "invalid_request", "invalid client")
 
-      {:error, _, _} ->
+      {:error, code, description} ->
+        Logger.warning("OIDC authorization rejected: #{code} - #{description}")
+
         Errors.send_oauth_error(conn, 400, "invalid_request", "invalid authorization request")
 
-      {:error, _} ->
+      {:error, reason} ->
+        Logger.warning("OIDC authorization rejected: #{inspect(reason)}")
+
         Errors.send_oauth_error(conn, 400, "invalid_request", "invalid authorization request")
     end
   end

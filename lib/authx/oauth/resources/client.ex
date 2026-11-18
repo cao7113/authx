@@ -1,10 +1,14 @@
-defmodule Authx.Oauth.Client do
+defmodule Authx.Oauth.Resources.Client do
   use Ash.Resource,
     otp_app: :authx,
-    domain: Authx.Oauth,
+    domain: Authx.Oauth.Domain,
     data_layer: AshPostgres.DataLayer,
-    extensions: [AshAuthentication.Oauth2Server.ClientResource],
+    extensions: [AshAuthentication.Oauth2Server.ClientResource, AshAdmin.Resource],
     authorizers: [Ash.Policy.Authorizer]
+
+  admin do
+    table_columns [:client_name, :redirect_uris, :scope, :last_used_at, :updated_at]
+  end
 
   postgres do
     table "oauth_clients"
@@ -37,6 +41,29 @@ defmodule Authx.Oauth.Client do
       change Authx.Oauth.Changes.AssignDeveloperOwner
     end
 
+    update :update do
+      description """
+      Updates a client owned by the acting developer.
+
+      The owner is never accepted as input; only the owning developer can
+      update the client.
+      """
+
+      require_atomic? false
+
+      accept [
+        :client_name,
+        :redirect_uris,
+        :grant_types,
+        :response_types,
+        :token_endpoint_auth_method,
+        :scope
+      ]
+
+      validate Authx.Oauth.Validations.RedirectUris
+      validate one_of(:token_endpoint_auth_method, ["none"])
+    end
+
     # CIMD 注册会为任意 URL 隐式创建客户端，无法确定开发者归属，因此在
     # 归属模型下不提供。启用 CIMD 前必须先定义其所有权语义。
   end
@@ -58,6 +85,12 @@ defmodule Authx.Oauth.Client do
     # 客户端只能由当前有效的开发者创建，归属由 actor 决定。
     policy action(:register) do
       authorize_if Authx.Developers.Checks.ActiveDeveloper
+    end
+
+    # 只有当前有效且是该客户端属主的开发者可以更新。
+    policy action(:update) do
+      forbid_unless Authx.Developers.Checks.ActiveDeveloper
+      authorize_if relates_to_actor_via(:developer)
     end
   end
 
