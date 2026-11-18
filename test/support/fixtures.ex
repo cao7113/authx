@@ -9,6 +9,10 @@ defmodule Authx.Fixtures do
 
   @developer_email "developer@example.com"
   @password "test_password"
+  @hashed_password (
+                     {:ok, hash} = AshAuthentication.BcryptProvider.hash(@password)
+                     hash
+                   )
   @redirect_uri "http://localhost:4001/auth/user/authx/callback"
 
   @client_attrs %{
@@ -28,7 +32,12 @@ defmodule Authx.Fixtures do
 
   @doc "Creates a user with the given email and role."
   def create_user(email, role \\ :user) do
-    Ash.Seed.seed!(User, %{email: email, hashed_password: @password, role: role})
+    Ash.Seed.seed!(User, %{
+      email: email,
+      hashed_password: @hashed_password,
+      role: role,
+      confirmed_at: DateTime.utc_now()
+    })
   end
 
   @doc """
@@ -50,5 +59,18 @@ defmodule Authx.Fixtures do
   def register_client(developer, attrs \\ %{}) do
     {:ok, client} = Clients.register(developer, Map.merge(@client_attrs, attrs))
     client
+  end
+
+  @doc """
+  Grants `user` consent for `client` at `scope`, using the protocol helper so
+  tests exercise the same write path as the authorization endpoint.
+  """
+  def grant_consent(user, client, scope \\ "openid email") do
+    AshAuthentication.Oauth2Server.Authorize.grant_consent!(
+      Authx.Oauth.Oidc.Server,
+      user,
+      client,
+      scope
+    )
   end
 end

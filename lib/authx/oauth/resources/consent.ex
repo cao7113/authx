@@ -25,6 +25,16 @@ defmodule Authx.Oauth.Resources.Consent do
     bypass AshAuthentication.Checks.AshAuthenticationInteraction do
       authorize_if always()
     end
+
+    # Users may see and revoke only their own consents. The actor is the
+    # authenticated `Authx.Accounts.User`, never an input parameter.
+    policy action_type(:read) do
+      authorize_if expr(user_id == ^actor(:id))
+    end
+
+    policy action(:destroy) do
+      authorize_if expr(user_id == ^actor(:id))
+    end
   end
 
   attributes do

@@ -69,7 +69,7 @@ defmodule Authx.Oauth.Clients do
   """
   def fetch_by_name(developer, client_name) when is_binary(client_name) do
     Client
-    |> Ash.Query.filter(client_name == ^client_name)
+    |> Ash.Query.filter(client_name == ^client_name and developer_id == ^developer.id)
     |> Ash.Query.limit(1)
     |> Ash.read_one(actor: developer)
     |> to_fetch_result()
@@ -85,7 +85,7 @@ defmodule Authx.Oauth.Clients do
     case Ecto.UUID.cast(client_id) do
       {:ok, uuid} ->
         Client
-        |> Ash.Query.filter(id == ^uuid)
+        |> Ash.Query.filter(id == ^uuid and developer_id == ^developer.id)
         |> Ash.read_one(actor: developer)
         |> to_fetch_result()
 
@@ -101,6 +101,7 @@ defmodule Authx.Oauth.Clients do
   """
   def list(developer) do
     Client
+    |> Ash.Query.filter(developer_id == ^developer.id)
     |> Ash.Query.sort(client_name: :asc)
     |> Ash.read!(actor: developer)
   end

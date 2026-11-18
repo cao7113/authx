@@ -1,11 +1,12 @@
 # 用户侧 OIDC 授权撤销（Consent Revocation）
 
-> 状态：设计稿，代码尚未实现。本文先明确语义与数据模型，再给出首版实现步骤和后续优化路线。
+> 状态：首版已实现：`/settings/apps` 页面、用户自助撤销、
+> 通用审计事件和 Client 读取策略。后续优化项见第 11 节。
 
 ## 结论摘要
 
 首版做**用户自助撤销自己在 Authx 对某个客户端的 OIDC 授权**，交互模型参考
-GitHub 的 *Authorized OAuth Apps* 页面：登录后看到「我已授权的应用」列表，
+GitHub 的 *Authorized OAuth Apps* 页面：登录后看到「我已授权应用」列表，
 逐个撤销，撤销前确认，撤销后给出明确结果提示。
 
 必须先定义清楚三个容易混淆的概念（GitHub/Google 的设置页也都在强调这个区分）：
@@ -19,6 +20,17 @@ GitHub 的 *Authorized OAuth Apps* 页面：登录后看到「我已授权的应
 首版只做第三件事，且只由用户在 Authx 页面发起；不做客户端侧静默撤销，
 不承诺即时吊销已签发令牌。后续按优先级补 RP-Initiated Logout、令牌吊销、
 撤销通知等（见第 11 节）。
+
+已确认的三条收敛原则：
+
+1. **Client 读取放开**：客户端记录不含凭据，读取不再限制为开发者本人；
+   写操作（注册、修改、删除）仍严格限属主。
+2. **审计做通用事件表**：不为 consent 单独建审计表，使用统一的
+   `Authx.Audit.Event`，首版只写入 `consent.revoked`，只在 Admin 中可查。
+3. **首版范围最小**：只做「列出已授权应用（含应用最近活动）+ 撤销单个
+   授权」。任何扩大（批量撤销、scope 级撤销、管理员代撤销、客户端发起
+   撤销、令牌即时失效）都必须先明确授权与语义，再新增 action/端点，
+   不通过放宽现有策略实现。
 
 ## 1. 现状盘点
 
@@ -42,8 +54,8 @@ GitHub 的 *Authorized OAuth Apps* 页面：登录后看到「我已授权的应
 `(user_id, client_id)` 唯一，保存合并后的 `scope` 和 `granted_at`：
 
 - action：`defaults [:read, :destroy]`、`create :grant`（upsert）。
-- policy：只有 `AshAuthentication.Checks.AshAuthenticationInteraction` bypass，
-  没有面向用户或开发者的读/删策略。
+- policy：协议交互走 `AshAuthentication.Checks.AshAuthenticationInteraction`
+  bypass；用户 read/destroy 策略要求 `user_id == actor.id`。
 
 ### 1.3 库对 consent 的读取方式（关键约束）
 
@@ -96,7 +108,7 @@ Google 的 *Third-party apps with account access* 采用同样的模型：每个
 
 ### 2.2 可借鉴的设计
 
-1. **术语分开**：页面标题用「已授权的应用」，操作叫「撤销授权」，不叫
+1. **术语分开**：页面标题用「已授权应用」，操作叫「撤销授权」，不叫
    「退出登录」或「删除应用」。
 2. **一应用一行**：应用名、授权范围（人类可读）、授权时间、最近活动、撤销
    入口。字段服务于同一个判断——「这个应用还值得信任吗」。
@@ -121,13 +133,13 @@ Google 的 *Third-party apps with account access* 采用同样的模型：每个
 
 ## 3. 目标与非目标
 
-### 目标（首版）
+### 目标（首版，保持最小）
 
-- 已登录用户在 Authx 查看自己有效授权的客户端列表。
-- 看到每个客户端的授权 scope 摘要、授权时间、应用最近活动（可用的近似值）。
+- 已登录用户在 Authx 查看自己有效授权的客户端列表（应用名、scope 摘要、
+  授权时间、应用最近活动）。
 - 撤销单个客户端授权，带确认和结果提示。
 - 撤销后，该客户端下一次授权请求必须重新显示 consent 页面。
-- 撤销操作有归属校验和最小审计记录；用户只能撤销自己的 consent。
+- 撤销操作有归属校验，并写入一条通用审计事件；用户只能撤销自己的 consent。
 
 ### 非目标（首版）
 
@@ -137,6 +149,9 @@ Google 的 *Third-party apps with account access* 采用同样的模型：每个
 - 通知客户端「授权已被撤销」（back-channel logout / webhook）。
 - 管理员替用户撤销、批量撤销。
 - 撤销 Authx 登录会话或客户端本地会话。
+- 专门的审计查询界面（首版写入事件，可在 Ash Admin 只读查看，见 5.2）。
+- 任何未在本文列出的新能力。扩大范围必须先明确授权、语义和威胁模型，
+  不能通过放宽现有 action 的策略临时实现。
 
 ## 4. 语义与效果矩阵
 
@@ -158,7 +173,7 @@ Google 的 *Third-party apps with account access* 采用同样的模型：每个
 
 | 方案 | 优点 | 缺点 |
 |---|---|---|
-| **A. 物理删除 consent 行 + 独立审计表（推荐）** | 与库语义完全一致；`consented?/5` 自动为 false；再次同意时 upsert 自然重建；无库耦合改动 | 需要新增审计资源；consent 表本身不保留历史 |
+| **A. 物理删除 consent 行 + 通用审计事件（推荐）** | 与库语义完全一致；`consented?/5` 自动为 false；再次同意时 upsert 自然重建；无库耦合改动 | consent 表本身不保留历史（历史由审计事件承载） |
 | B. consent 增加 `revoked_at` 软删除 | 历史集中在同一行 | 库读取不认该字段，必须包装 `consented?/5` 并保证所有读取路径都过滤；`:grant` upsert 必须清空 `revoked_at`；并发撤销/重新同意更易出错 |
 | C. 只保留 `:destroy`，不记审计 | 改动最小 | 不满足可审计要求，无法回答「谁在何时撤销了什么」 |
 
@@ -166,29 +181,44 @@ Google 的 *Third-party apps with account access* 采用同样的模型：每个
 语义；历史应由审计数据承载，而不是混进状态行。注意这与「客户端停用」不同：
 客户端记录不能物理删除，consent 的物理删除恰恰是撤销语义本身。
 
-### 5.2 审计资源
+### 5.2 通用审计事件
 
-新增 `Authx.Oauth.Resources.ConsentRevocation`：
+不建 `consent_revocations` 专表，改为通用追加式审计资源
+`Authx.Audit.Event`，首版只写入一种事件 `consent.revoked`。撤销只是第一个
+使用方；以后客户端启停、developer 授权、管理员操作可以复用同一张表。
+
+最小字段：
 
 ```text
-oauth_consent_revocations
-  id            uuid_v7 pk
-  user_id       uuid       # 撤销者（也是 consent 的属主）
-  client_id     uuid
-  client_name   text       # 快照，便于客户端改名/删除后审计仍可读
-  scope         text       # 撤销时被移除的 scope 快照
-  source        text       # "self_service"；未来可为 "admin" / "user_disabled"
-  revoked_at    utc_datetime_usec
+audit_events
+  id             uuid_v7 pk
+  event          text        # 事件名，如 "consent.revoked"
+  actor_user_id  uuid        # 实际操作者；系统操作可为空
+  subject_user_id uuid       # 受影响用户（撤销 consent 时即 actor）
+  target_type    text        # "oauth_client"；为通用性保留
+  target_id      uuid        # 客户端 id
+  metadata       map         # 事件相关快照，如 client_name、revoked scope
+  inserted_at    utc_datetime_usec
 ```
 
 约定：
 
-- 只允许 create/read，不允许 update/destroy（append-only）。
-- 不记录 token、code、密码等敏感凭据。
-- `client_name` 用快照而非 join，审计记录不随客户端改名而变化。
-- 外键策略：审计数据要求长期可读，建议**不加级联删除**；若未来允许删除
-  用户/客户端，应使用 `nilify` 或不做外键并保留快照。consent 表当前已有
+- **append-only**：只允许 create/read，不提供 update/destroy action；
+  写入只发生在领域函数内部，不暴露给用户界面。
+- 事件名使用稳定的点分命名（`consent.revoked`），不要用自由文本。
+- 不记录 token、authorization code、密码、完整请求头等敏感内容；
+  `metadata` 只放排障所需的最小快照（如 `client_name`、`scope`）。
+- `metadata` 采用快照而非 join，客户端改名/删除后审计仍可读。
+- 外键与保留策略：审计要求长期可读，建议不加级联删除；若未来允许删除
+  用户/客户端，使用 `nilify` 或不做外键并保留快照。consent 表当前已有
   user/client 外键，删除仍受约束。
+- **只在 Admin 中可查**：read 策略使用
+  `Authx.Accounts.Checks.AdminCheck`，普通用户、developers 和匿名访问都
+  读不到。注意 Ash Admin 的 actor 传递与授权不能仅靠界面开关，查询入口
+  仍需保留管理员路由保护（见 8 节）。
+- 首版不要求做审计查询界面；先把事件写正确，检索可以先用 Ash Admin 或
+  数据库完成。若 Ash Admin 的 actor 授权链暂不可靠，宁可先不暴露该资源，
+  也不要 `authorize?: false` 地开放给人看。
 
 ### 5.3 consent 表
 
@@ -234,18 +264,19 @@ policies do
   end
 
   policy action_type(:read) do
-    authorize_if relates_to_actor_via(:user)
+    authorize_if expr(user_id == ^actor(:id))
   end
 
   policy action(:destroy) do
-    authorize_if relates_to_actor_via(:user)
+    authorize_if expr(user_id == ^actor(:id))
   end
 end
 ```
 
-`relates_to_actor_via(:user)` 要求 actor 是 `%Authx.Accounts.User{}` 且与记录
-`user_id` 一致。不要接受表单传入的 `user_id` 作为身份依据，actor 必须来自
-已认证会话。
+属性表达式在读取时会被下推为过滤条件，在删除时直接比较记录与 actor，
+因此重复撤销不会先因策略求值失败而报 forbidden；上下文函数随后把
+「记录已不存在」统一映射为 `{:error, :not_found}`。不要接受表单传入的
+`user_id` 作为身份依据，actor 必须来自已认证会话。
 
 ### 6.2 上下文 API
 
@@ -269,31 +300,41 @@ def revoke(%User{} = user, %Consent{} = consent) ::
 - `fetch_for_user/2` 过滤 `user_id == actor.id`，避免越权 ID 探测；
   不存在的 consent 一律返回 `:not_found`。
 - `revoke/2` 在一个 `Ash.transact` 中：删除 consent（actor 走策略）→
-  创建 `ConsentRevocation`（快照 `client_name`、`scope`）。
+  创建 `Authx.Audit.Event`，`event = "consent.revoked"`，`metadata` 记录
+  `client_name` 与撤销时的 `scope` 快照。
 - 并发：consent 删除和重新同意可能交错。删除影响 0 行时返回
   `{:error, :not_found}`，UI 提示后刷新列表；不要静默成功。
 - 不把 `revoke/2` 放进 `Authx.Oauth.Clients`：consent 是用户对客户端的状态，
   不是开发者的客户端管理操作，权限主体也不同。
 
-### 6.3 读取 client 的策略冲突
+### 6.3 Client 读取策略（已决定：放开读取）
 
-列表需要展示应用名，但 `Client` 的 read 策略目前只允许**属于该客户端的
-developer** 读取（见 `Authx.Oauth.Resources.Client` 的策略）。普通用户作为
-actor 直接 `Ash.Query.load(:client)` 时，关联读取同样受策略约束，会被拒绝
-或返回空关联。
+列表需要展示应用名，而 `Client` 的 read 策略目前只允许**属于该客户端的
+developer** 读取。既然客户端记录不含 secret、token 等凭据，首版决定把
+**读取**放开给已登录用户：
 
-可选方案：
+```elixir
+# 意图示意：read 不再要求 developer 归属
+policy action_type(:read) do
+  authorize_if actor_present()
+end
+```
 
-| 方案 | 说明 | 评价 |
-|---|---|---|
-| A. 通过 consent 关联授权读取 | 给 `Client` 增加 `has_many :consents`，策略增加 `action_type(:read)` 下 `authorize_if relates_to_actor_via([:consents, :user])` | 语义正确：用户只能读到「自己确实授权过」的客户端；但会顺带开放 client 的其他 public 字段，必要时为该场景定义专用 read action 并用 `select` 限制字段 |
-| B. 领域层受控读取 | `list_for_user/1` 先按 actor 查出 consent（策略已保证归属），再批量按 id 取 client 的展示字段，使用受控的内部读取 | 实现简单；必须写清「先确认归属再关策略」的顺序，避免变成通用 `authorize?: false` 后门，并补越权测试 |
-| C. 冗余快照 | 在 consent 上保存 `client_name` | 会随客户端改名过期，不适合作为主展示来源；审计表仍建议保留快照 |
+边界：
 
-首版建议 **A 或 B 择一**。若选 B，应把内部读取封装在 `Authx.Oauth.Consents`
-内、只暴露 `client_name` 等展示字段，并在测试中证明普通用户无法借此读取
-他人的客户端或其他字段。无论选哪种，都不要为了让页面渲染而全局放开
-Client 的 read 策略。
+- `:register`、`:update`、`:destroy` 仍必须限当前有效 developer 且为属主；
+  放开的只有 read。不要用 read 的放宽去实现开发者控制台以外的写操作。
+- 匿名访问仍然拒绝；`actor_present()` 只放行已认证 actor。
+- 记录中仍有 `redirect_uris`、`developer_id` 等元数据。已登录用户能看到
+  其他客户端的回调地址，属于可接受的披露；如果未来接入不可信用户或公网
+  多租户，应改用字段策略隐藏 `redirect_uris`，或为该页面定义只含展示字段
+  的专用 read action，而不是继续扩大通用 read。
+- 协议交互继续走 `AshAuthenticationInteraction` bypass，不受此策略影响。
+- 需要同步更新 [`oidc-client-management.md`](oidc-client-management.md) 里
+  「读取受策略限制为开发者属主」的现状描述和相应测试。
+
+领域层仍然按 `user_id == actor.id` 过滤 consent；放开 Client read 只解决
+「加载应用名」，不改变「只能操作自己的 consent」。
 
 ## 7. 页面与交互设计
 
@@ -302,34 +343,34 @@ Client 的 read 策略。
 在 `ash_authentication_live_session` 的 authenticated scope 内新增：
 
 ```elixir
-live "/settings/applications", Settings.ApplicationsLive, :index
+live "/settings/apps", Settings.AppsLive, :index
 ```
 
 LiveView 使用 `on_mount {AuthxWeb.LiveUserAuth, :live_user_required}`。未登录
 用户被重定向到 `/sign-in`，登录后回到本页。页面属于账号设置，不属于
 `/admin`，因此**不检查 admin**。
 
-导航：在已登录布局的用户菜单中增加「已授权的应用」。这是普通用户入口，
+导航：在已登录布局的用户菜单中增加「已授权应用」。这是普通用户入口，
 不放在开发者的客户端管理入口下。
 
 ### 7.2 页面结构（参考 GitHub，不做照抄）
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ 账号设置 / 已授权的应用                                       │
+│ 账号设置 / 已授权应用                                       │
 │                                                              │
 │ 这些应用可以使用 Authx 登录并访问你允许的信息。撤销后，        │
 │ 应用需要重新获得你的授权。撤销不会退出你在这些应用中的登录。    │
 │                                                              │
 │ ┌──────────────────────────────────────────────────────────┐ │
 │ │ Demo App                              [撤销授权]          │ │
-│ │ 可访问：登录身份、邮箱                                    │ │
+│ │ 可访问：openid email                                      │ │
 │ │ 授权时间：2026-11-18 10:24                                │ │
-│ │ 应用最近活动: 2026-11-18 12:03（如可用）                  │ │
+│ │ 应用最近活动：2026-11-18 12:03                            │ │
 │ └──────────────────────────────────────────────────────────┘ │
 │ ┌──────────────────────────────────────────────────────────┐ │
 │ │ Foo App                               [撤销授权]          │ │
-│ │ 可访问：登录身份、邮箱、基本资料                          │ │
+│ │ 可访问：openid email profile                              │ │
 │ │ 授权时间：2026-11-16 09:12                                │ │
 │ └──────────────────────────────────────────────────────────┘ │
 │                                                              │
@@ -342,22 +383,17 @@ LiveView 使用 `on_mount {AuthxWeb.LiveUserAuth, :live_user_required}`。未登
 | 字段 | 来源 | 说明 |
 |---|---|---|
 | 应用名 | `client.client_name` | 空值回退「未命名应用」；不展示 `client_id` 作为主标识 |
-| 开发者/归属 | `client.developer` | 首版可不展示；后续可显示「由 X 开发」 |
-| 授权范围 | `consent.scope` | 映射为人类可读文案（见 7.3） |
+| 授权范围 | `consent.scope` | 直接展示原始 scope 值（如 `openid email`），不做文案映射 |
 | 授权时间 | `consent.granted_at` | 重新同意会刷新该值 |
-| 最近活动 | `client.last_used_at` | **注意：这是客户端维度的最近 token 交换时间，不是「该用户的最近使用」**，首版标签用「应用最近活动」；按用户粒度见 11.1 |
+| 应用最近活动 | `client.last_used_at` | **客户端维度**的最近 token 交换时间，不是「该用户的最近使用」；无记录显示「暂无记录」。按用户粒度见 11.1 |
+| 开发者/归属 | `client.developer` | 首版不展示；后续可显示「由 X 开发」 |
 | 撤销 | consent id | 不传 user_id / client_id 作为授权依据 |
 
-### 7.3 scope 文案
+### 7.3 scope 展示
 
-与 [`oidc-scopes.md`](oidc-scopes.md) 保持一致，UI 层做映射：
-
-- `openid` → 登录身份
-- `email` → 邮箱地址
-- `profile` → 基本资料
-
-未知 scope 原样显示（不允许未知 scope 发授权请求的逻辑仍在 `validate_request`）。
-服务端按固定顺序展示，避免 unordered 文本。
+直接展示 `consent.scope` 的原始值（空格分隔，例如 `openid email`），不做
+文案映射，避免页面文案与协议 scope 语义产生偏差。scope 的完整语义见
+[`oidc-scopes.md`](oidc-scopes.md)。
 
 ### 7.4 交互流程
 
@@ -393,13 +429,16 @@ LiveView 使用 `on_mount {AuthxWeb.LiveUserAuth, :live_user_required}`。未登
 | 客户端伪造撤销 | 首版不提供客户端撤销入口；未来若提供，必须要求用户在场（浏览器跳转 + 确认），不能仅凭 `client_id`（公开客户端无法保密） |
 | 误操作 | 二次确认 + 结果提示；不提供 hover 触发 |
 | 撤销竞态 | 删除影响 0 行返回 `:not_found`；列表刷新；审计只在事务内随删除成功写入 |
-| 审计污染 | 审计写入不接受用户输入的身份字段；`source` 由服务端设定；不记录 token/code |
-| 枚举 | 页面只展示当前用户的 consent；不提供按 client_id 的公开查询 |
+| 审计污染 | 审计写入不接受用户输入的身份字段；`event` 由服务端设定；不记录 token/code |
+| 枚举 | consent 页面只展示当前用户的 consent；Client 读取放开后，登录用户能看到客户端元数据（含 redirect_uris），这是已接受的披露；不提供匿名读取 |
 | 撤销后旧令牌 | UI 明示最长约 1 小时窗口；即时失效列入后续工作，不虚假承诺 |
 | 管理员越权 | 管理员不因角色自动获得替用户撤销的能力；如未来提供，须独立入口与审计 |
+| 审计越权读取 | 审计 read 策略使用 `AdminCheck`；Ash Admin 的 actor 传递不能替代真实身份校验，路由层管理员保护仍需保留 |
 
 补充：consent 的 `destroy` 不应暴露给协议 internals 之外的任意 actor。
-Ash Admin 也暂不暴露该资源，避免运营界面绕过用户同意语义。
+Consent 资源暂不暴露在 Ash Admin，避免运营界面绕过用户同意语义。审计
+事件可以出现在 Admin 中，但只允许读，且必须确认 actor 确实是管理员（见
+[`Authx.Accounts.Checks.AdminCheck`](../lib/authx/accounts/checks/admin_check.ex)）。
 
 ## 9. 测试计划
 
@@ -409,39 +448,56 @@ Ash Admin 也暂不暴露该资源，避免运营界面绕过用户同意语义�
 - 用户看不到、也无法撤销他人的 consent（返回 `:not_found`）。
 - 匿名 actor 被拒绝。
 - developer 与 admin 不能顺带获得普通用户的 consent 管理权限。
-- `revoke/2` 删除 consent 并在同一事务写入审计；审计包含正确快照。
+- `revoke/2` 删除 consent 并在同一事务写入 `consent.revoked` 审计事件；
+  审计包含正确快照。
 - 重复撤销：第二次返回 `:not_found`，审计不重复写入。
 
-协议回归（`test/authx_web/controllers/oidc_controller_test.exs`）：
+Client 读取策略测试（`test/authx/oauth/clients_test.exs` 或新增策略测试）：
 
-- 用户同意 → 撤销 → 再次 authorize 渲染 consent 页面，而不是直接发 code。
-- 撤销后重新同意 → consent 重建，后续 authorize 直接发 code。
+- 任意已登录用户可读取 client（含非属主、无 consent 的 client）。
+- 匿名读取被拒绝。
+- 非属主仍不能 update；register/update 的属主限制不变。
+- 协议交互 bypass 不受影响。
+
+审计资源测试：
+
+- 普通用户、developer 读不到审计事件；管理员可以读。
+- 审计资源没有 update/destroy 入口；写入只通过领域函数。
+- metadata 不包含敏感字段。
+
+协议回归（`test/authx_web/oidc_routes_test.exs`）：
+
+- 用户已有覆盖 scope 的 consent → 直接签发 code。
+- 撤销 → 再次 authorize 渲染 consent 页面，而不是直接发 code。
 - 撤销不影响其他用户或同一用户对其他客户端的 consent。
-- 撤销期间已发出的 code 在有效期内仍可兑换（明确记录该行为，避免误判回归）。
 
-LiveView 测试（`test/authx_web/live/settings/applications_live_test.exs`）：
+LiveView 测试（`test/authx_web/live/settings/apps_live_test.exs`）：
 
 - 未登录访问重定向到 `/sign-in`。
-- 列表渲染应用名、scope 文案、授权时间；空状态正确。
+- 列表渲染应用名、原始 scope 值、授权时间、应用最近活动；空状态正确。
 - 点击撤销 → 出现确认 → 确认后行消失、出现成功提示。
 - 直接构造他人 consent 的 id 无法撤销。
 
 迁移测试：新表可回滚，索引与外键符合预期。
 
-## 10. 实施步骤
+## 10. 实施步骤（首版已完成）
 
-1. **数据层**：新增 `ConsentRevocation` 资源与迁移；补 consent 面向用户的
-   read/destroy 策略。
-2. **领域层**：新增 `Authx.Oauth.Consents`（`list_for_user/1`、
-   `fetch_for_user/2`、`revoke/2`），审计写入与删除同事务；补测试。
-3. **界面**：`Settings.ApplicationsLive` + 路由 + 已登录导航入口；
-   列表使用 stream，撤销带确认；补 LiveView 测试。
-4. **文档**：把 [`oidc-client-management.md`](oidc-client-management.md)
-   中「退出应用只结束应用会话，不等于撤销 consent」一段更新为「当前已支持
-   用户自助撤销」，并链接本文；在 `_overview.md` 增加入口。
-5. **验收**：按第 9 节跑完；`mix precommit` 通过。
-
-建议一次 PR 完成 1–2，另一次 PR 完成 3 与文档；两者可独立回滚。
+1. **策略**：`Client` 的 `action_type(:read)` 已放开为 `actor_present()`；
+   consent 增加用户 read/destroy 策略；`Clients` 的列表与查找显式按
+   `developer_id` 过滤，保证开发者控制台仍只看到自己的客户端。
+2. **数据层**：新增 `Authx.Audit.Event` 与
+   `priv/repo/migrations/20261118030537_add_audit_events.exs`（append-only，
+   read 仅管理员）；没有 consent 专表。
+3. **领域层**：新增 [`Authx.Oauth.Consents`](../lib/authx/oauth/consents.ex)
+   （`list_for_user/1`、`fetch_for_user/2`、`revoke/2`），撤销与审计写入
+   同事务；撤销前在用户范围内重新读取，保证越权和重复撤销都返回
+   `{:error, :not_found}`。
+4. **界面**：[`Settings.AppsLive`](../lib/authx_web/live/settings/apps_live.ex)
+   + `/settings/apps` 路由 + 已登录用户菜单入口；列表使用 stream，
+   展示应用名、scope、授权时间、应用最近活动，撤销带确认。
+5. **文档**：更新 [`oidc-client-management.md`](oidc-client-management.md)
+   的现状描述；在 `_overview.md` 增加入口。
+6. **验收**：相关测试通过；`mix test` 全量通过。
 
 ## 11. 后续优化路线
 
@@ -502,7 +558,7 @@ OIDC Back-Channel Logout 可以在用户撤销或会话结束时，由 Authx 向
 
 ### 11.6 细粒度 scope 撤销
 
-允许用户保留「登录身份」但移除「邮箱」授权：
+允许用户保留 `openid` 但移除 `email` 授权：
 
 - 库的 consent 语义是「行内 scope 是请求 scope 的超集」，因此实现方式是
   删除后按剩余 scope 重建 consent（会重置 `granted_at`），或改造为
@@ -522,21 +578,40 @@ OIDC Back-Channel Logout 可以在用户撤销或会话结束时，由 Authx 向
 
 ### 11.8 审计展示与合规
 
-- 面向用户展示「最近的授权活动」；面向管理员展示撤销审计。
-- 长期可考虑引入 AshPaperTrail 或统一审计资源，但不要因此把敏感凭据写入
-  审计记录。
+- 首版不专门做查询界面；审计事件通过 Ash Admin 只读查看（路由仍受
+  管理员保护）。后续再补面向管理员的筛选界面和面向用户的
+  「最近授权活动」。
+- 统一审计资源已在首版建立（`Authx.Audit.Event`），不要再为单个功能重复
+  建表；新增事件时扩展事件名和 metadata，而不是新建资源。
 - 明确审计保留期和用户删除账号后的处理方式（快照字段可保留，主体标识
   需匿名化或按政策删除）。
 
-## 12. 待确认的产品决策
+## 12. 决策记录与剩余待确认项
 
-1. 撤销后是否立即在 token 交换时校验 consent（建议是，见 11.3）。
-2. 是否在首版就展示「应用最近活动」；若展示，必须使用「应用维度」措辞。
-3. 撤销是否要向客户端发送通知（首版建议否，见 11.5）。
-4. 是否允许管理员替用户撤销，以及授权与审计流程。
-5. 是否需要 scope 级撤销进入首版（建议否）。
-6. consent 被撤销后重新同意，`granted_at` 是否要保留首次授权时间供展示
+### 已确认
+
+1. **Client 读取放开**：客户端记录不含凭据，读取不再限制为开发者本人；
+   匿名仍拒绝，写操作仍限属主。已接受的披露是 `redirect_uris` 等元数据
+   对已登录用户可见。
+2. **审计通用化**：不为 consent 建专表，使用 `Authx.Audit.Event`；
+   首版只写入 `consent.revoked`，只在 Admin 中可查（read 策略 `AdminCheck`）。
+3. **首版范围最小**：列出已授权应用（含应用最近活动）+ 撤销单个授权。
+4. **扩大范围需明确授权**：任何新增能力（批量撤销、scope 级撤销、管理员
+   代撤销、客户端发起撤销、撤销通知、令牌即时失效）都必须单独确认语义、
+   威胁模型和策略，以新增 action/端点实现，不得通过放宽现有 action 实现。
+5. **撤销是否通知客户端**：首版不通知（11.5）。
+6. **scope 级撤销**：不进入首版（11.6）。
+7. **应用最近活动**：首版展示 `client.last_used_at`，文案明确为应用维度。
+
+### 仍待确认
+
+1. 撤销后是否在 token 交换时校验 consent（建议是，见 11.3）。
+2. 审计事件是否需要记录请求 IP/User-Agent；会扩大敏感数据范围，需先定策略。
+3. 是否允许管理员替用户撤销，以及授权、审计和应急流程。
+4. consent 被撤销后重新同意，`granted_at` 是否要保留首次授权时间供展示
    （当前 upsert 会刷新；如需要，增加 `first_granted_at`）。
+5. Client 读取放开后，是否需要字段策略隐藏 `redirect_uris`（当前决定不做，
+   接入不可信用户或公网多租户时再评估）。
 
 ## 参考
 

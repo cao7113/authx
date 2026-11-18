@@ -75,7 +75,7 @@ config :spark,
 config :authx,
   ecto_repos: [Authx.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Authx.Accounts, Authx.Developers, Authx.Oauth.Domain],
+  ash_domains: [Authx.Accounts, Authx.Developers, Authx.Oauth.Domain, Authx.Audit],
   ash_authentication: [return_error_on_invalid_magic_link_token?: true]
 
 # Configure the endpoint

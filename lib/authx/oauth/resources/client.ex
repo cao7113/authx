@@ -75,11 +75,11 @@ defmodule Authx.Oauth.Resources.Client do
       authorize_if always()
     end
 
-    # 只有当前有效的开发者本人（actor 即该 Developer 记录）能读取自己名下的
-    # 客户端；其他开发者、普通用户和匿名访问者都看不到。
+    # 客户端记录不含 secret、token 等凭据，读取放开给任意已认证用户，
+    # 以便「已授权应用」页面展示应用名等元数据。匿名访问仍然拒绝。
+    # 写操作（注册、修改、删除）不受此策略影响，仍限当前有效开发者且为属主。
     policy action_type(:read) do
-      forbid_unless Authx.Developers.Checks.ActiveDeveloper
-      authorize_if relates_to_actor_via(:developer)
+      authorize_if actor_present()
     end
 
     # 客户端只能由当前有效的开发者创建，归属由 actor 决定。

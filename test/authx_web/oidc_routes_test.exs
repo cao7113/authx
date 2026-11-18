@@ -139,6 +139,38 @@ defmodule AuthxWeb.OidcRoutesTest do
            }
   end
 
+  test "revoking consent makes the next authorization ask for consent again", %{
+    client: client,
+    user: user
+  } do
+    consent = grant_consent(user, client, "openid email")
+
+    authorized_conn =
+      build_conn()
+      |> init_test_session(%{})
+      |> AshAuthentication.Plug.Helpers.store_in_session(user)
+      |> get("/oidc/authorize", authorization_params(client, "openid email", "nonce-revoke"))
+
+    assert %{"code" => _code} =
+             authorized_conn
+             |> redirected_to()
+             |> URI.parse()
+             |> Map.fetch!(:query)
+             |> URI.decode_query()
+
+    assert {:ok, _revoked} = Authx.Oauth.Consents.revoke(user, consent)
+
+    consent_conn =
+      build_conn()
+      |> init_test_session(%{})
+      |> AshAuthentication.Plug.Helpers.store_in_session(user)
+      |> get("/oidc/authorize", authorization_params(client, "openid email", "nonce-revoke-2"))
+
+    html = consent_conn |> html_response(200) |> LazyHTML.from_document()
+    assert [signed] = LazyHTML.attribute(html["input[name='consent_request']"], "value")
+    assert is_binary(signed)
+  end
+
   test "missing nonce and redirect URI mismatch are rejected", %{client: client, user: user} do
     params = authorization_params(client, "openid email", "nonce")
 

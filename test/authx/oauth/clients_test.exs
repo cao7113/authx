@@ -14,7 +14,7 @@ defmodule Authx.Oauth.ClientsTest do
       assert {:ok, client} = Clients.register(developer, client_attrs())
       assert client.developer_id == developer.id
 
-      assert {:ok, [found]} = Ash.read(Client, actor: developer)
+      assert [found] = Clients.list(developer)
       assert found.id == client.id
     end
 
@@ -25,7 +25,7 @@ defmodule Authx.Oauth.ClientsTest do
       assert {:error, %Ash.Error.Invalid{}} =
                Clients.register(owner, Map.put(client_attrs(), :developer_id, other.id))
 
-      assert {:ok, []} = Ash.read(Client, actor: other)
+      assert [] = Clients.list(other)
     end
 
     test "a client cannot be registered without an acting developer" do
@@ -172,27 +172,31 @@ defmodule Authx.Oauth.ClientsTest do
   end
 
   describe "client visibility" do
-    test "developers only see their own clients" do
+    test "the developer console only lists the acting developer's clients" do
       owner = create_developer("owner-scope@example.com")
       other = create_developer("other-scope@example.com")
       client = register_client(owner)
 
-      assert {:ok, [found]} = Ash.read(Client, actor: owner)
+      assert [found] = Clients.list(owner)
       assert found.id == client.id
 
-      assert {:ok, []} = Ash.read(Client, actor: other)
+      assert [] = Clients.list(other)
     end
 
-    test "a plain user cannot see clients" do
+    test "an authenticated user can read client metadata" do
       owner = create_developer("owner-plain@example.com")
-      _client = register_client(owner)
-      user = create_user("plain@example.com", :user)
+      client = register_client(owner)
+      user = create_user("plain-reader@example.com", :user)
 
-      # 普通用户不满足 developer 检查：Ash 会直接拒绝，或在读取时过滤为空。
-      case Ash.read(Client, actor: user) do
-        {:ok, clients} -> assert clients == []
-        {:error, error} -> assert %Ash.Error.Forbidden{} = Ash.Error.to_error_class(error)
-      end
+      assert {:ok, [found]} = Ash.read(Client, actor: user)
+      assert found.id == client.id
+    end
+
+    test "anonymous actors cannot read clients" do
+      owner = create_developer("owner-anon@example.com")
+      _client = register_client(owner)
+
+      assert {:ok, []} = Ash.read(Client)
     end
   end
 end

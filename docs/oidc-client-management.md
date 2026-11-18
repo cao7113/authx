@@ -100,7 +100,10 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
 4. 应用在回调校验 `state`，服务端或客户端使用 verifier 兑换授权码；
    验证 ID Token 的签名、issuer、audience、时效及 nonce。
 5. 应用按 `(issuer, sub)` 关联本地账号并建立本地会话。退出应用只结束
-   应用会话，不自动退出 Authx，也不等于撤销 consent。
+   应用会话，不自动退出 Authx，也不等于撤销 consent。用户可在 Authx 的
+   「已授权应用」页面自助撤销授权；撤销只影响后续授权请求，不结束任何
+   会话，也不即时吊销已签发的令牌。设计细节见
+   [用户侧 OIDC 授权撤销](oidc-consent-revocation.md)。
 
 ## 当前架构与评价
 
@@ -121,9 +124,10 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
   每个客户端恰好属于一个 developer。创建只经过 `Authx.Oauth.Resources.Client` 的
   `:register` action：actor 必须是当前有效的 `Developer`，归属由 actor
   决定且不能作为输入提交（`developer_id` 不在 accept 列表中，且不可写）。
-  读取受策略限制为「当前有效 developer 且是该客户端属主」，因此不同
-  developer 之间互不可见；普通用户、匿名访问和未获 developer 资格的管理员
-  都看不到客户端。更新通过 `:update` action（上下文入口
+  读取已放开给任意已登录用户（客户端记录不含凭据，供「已授权应用」页面
+  展示元数据），但 `Authx.Oauth.Clients` 的列表与查找会显式按 `developer_id`
+  过滤，因此不同 developer 在控制台中仍然互不可见；普通用户、匿名访问
+  只能读到客户端元数据，不能执行任何写操作。更新通过 `:update` action（上下文入口
   `Authx.Oauth.Clients.update/3`）执行，接受与注册相同的元数据字段，策略
   同样是「当前有效 developer 且为属主」；归属不能通过输入修改。创建和
   更新时都在资源 action 内校验安全关键项：回调 URI 必须是带 host 的
@@ -171,14 +175,16 @@ ID Token 供客户端验证用户身份，access token 用于访问指定资源�
   一个开发者可拥有多个客户端。归属只来自已认证的开发者身份（actor），
   不能提交任意 owner ID：`developer_id` 不在创建 action 的 accept 列表中，
   且在资源上不可写。组织归属、多所有者、委托和团队协作暂不实现。
-- **已实现（读取与创建）** 开发者只能读取自己名下的客户端，策略要求 actor
-  是当前有效的 developer 并且是该客户端属主；其他开发者、普通用户和匿名
-  访问都读不到。客户端创建不需要管理员逐个审核；用户对客户端数据的
-  consent 仍独立存在。修改与停用 action 待实现。
+- **已实现（读取与创建）** 客户端读取已放开给任意已登录 actor；开发者
+  控制台的列表与查找（`Authx.Oauth.Clients.list/1`、`fetch_by_*`）显式按
+  `developer_id` 过滤，因此开发者之间仍互不可见，普通用户和匿名访问
+  只能读取客户端元数据，不能执行写操作。客户端创建不需要管理员逐个审核；
+  用户对客户端数据的 consent 仍独立存在。修改与停用 action 待实现。
 - **已实现** admin 不因拥有 admin 角色而自动作为 developer 创建或管理
-  客户端：客户端策略不向 `User` actor 授权，未获 developer 资格的 admin
-  也读不到客户端。管理员是否需要独立的应急查看、停用或归属转移能力须
-  另行决定并审计，不能混同于开发者日常操作。
+  客户端：注册、修改、删除仍要求当前有效的 developer 且为属主；未获
+  developer 资格的 admin 不能管理客户端（读取元数据除外）。管理员是否
+  需要独立的应急查看、停用或归属转移能力须另行决定并审计，不能混同于
+  开发者日常操作。
 - 创建、修改和停用需在资源层执行相同的授权、归属和输入校验，覆盖
   开发者控制台及未来 API；仅限制页面入口不足以隔离数据。创建已实现
   归属与安全关键项校验（回调 URI、认证方式）；grant、response 和 scope

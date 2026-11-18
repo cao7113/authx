@@ -35,4 +35,24 @@ defmodule AuthxWeb.ConnCase do
     Authx.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc """
+  Puts an authenticated user (with a real sign-in token) into the connection
+  session, so browser and LiveView tests can act as that user.
+  """
+  def sign_in_user(conn, %Authx.Accounts.User{} = user, password \\ "test_password") do
+    strategy = AshAuthentication.Info.strategy!(Authx.Accounts.User, :password)
+
+    {:ok, authenticated} =
+      AshAuthentication.Strategy.action(
+        strategy,
+        :sign_in,
+        %{email: user.email, password: password},
+        []
+      )
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> AshAuthentication.Plug.Helpers.store_in_session(authenticated)
+  end
 end

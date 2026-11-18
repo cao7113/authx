@@ -175,6 +175,13 @@ defmodule AuthxWeb.Layouts do
               >
                 <div class="rounded-xl border border-[#dfe8db] bg-white p-1.5 shadow-lg shadow-[#1d4936]/10">
                   <.link
+                    href={~p"/settings/apps"}
+                    id="nav-authorized-apps"
+                    class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
+                  >
+                    已授权应用
+                  </.link>
+                  <.link
                     href={~p"/sign-out"}
                     id="nav-sign-out"
                     class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
