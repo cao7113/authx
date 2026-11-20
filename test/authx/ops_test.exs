@@ -48,6 +48,24 @@ defmodule Authx.OpsTest do
     end
   end
 
+  describe "manual_confirm/3" do
+    test "confirms a user by email through the User action" do
+      admin = create_user("ops-manual-confirm-admin@example.com", :admin)
+      user = Ash.Seed.seed!(Authx.Accounts.User, %{email: "ops-manual-confirm@example.com"})
+      confirmed_at = ~U[2026-01-02 03:04:05.000000Z]
+
+      assert {:ok, confirmed} =
+               Ops.manual_confirm(
+                 "ops-manual-confirm@example.com",
+                 to_string(admin.email),
+                 confirmed_at
+               )
+
+      assert confirmed.id == user.id
+      assert confirmed.confirmed_at == confirmed_at
+    end
+  end
+
   describe "ensure_client/3" do
     test "creates a client owned by the resolved developer with default metadata" do
       developer = create_developer("ops-client@example.com")

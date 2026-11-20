@@ -102,6 +102,10 @@ defmodule AuthxWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/sign-in", AuthController, :sign_in
+    get "/register", AuthController, :register
+    get "/auth/please-confirm", AuthController, :please_confirm
+    post "/auth/please-confirm/resend", AuthController, :resend_confirmation
     auth_routes AuthController, Authx.Accounts.User, path: "/auth"
 
     sign_out_route AuthController, "/sign-out",
@@ -135,11 +139,17 @@ defmodule AuthxWeb.Router do
   #   pipe_through :api
   # end
 
-  # Enable the Swoosh mailbox preview in development
-  if Application.compile_env(:authx, :dev_routes) do
+  # # Enable the Swoosh mailbox preview in development
+  # if Application.compile_env(:authx, :dev_routes) do
+  #   scope "/dev" do
+  #     pipe_through :browser
+
+  #     forward "/mailbox", Plug.Swoosh.MailboxPreview
+  #   end
+  # end
+  if Authx.Mailer.local_preview?() do
     scope "/dev" do
       pipe_through :browser
-
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end

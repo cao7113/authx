@@ -39,9 +39,13 @@ if config_env() == :dev do
     ]
 end
 
+host = System.get_env("PHX_HOST") || "localhost"
+config :authx, :phx_host, host
+
 # Authx-specific OIDC configuration. The OAuth2/OIDC routes are always mounted,
 # so a production deployment must provide these values.
 if config_env() == :prod do
+  ## OIDC and OAuth2 configuration
   issuer =
     System.get_env("AUTHX_ISSUER") ||
       raise "environment variable AUTHX_ISSUER is missing"
@@ -62,9 +66,8 @@ if config_env() == :prod do
     oidc_private_key_file:
       System.get_env("AUTHX_OIDC_PRIVATE_KEY_FILE") ||
         raise("environment variable AUTHX_OIDC_PRIVATE_KEY_FILE is missing")
-end
 
-if config_env() == :prod do
+  ## Classic Phoenix app config
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
@@ -93,8 +96,6 @@ if config_env() == :prod do
       environment variable SECRET_KEY_BASE is missing.
       You can generate one by calling: mix phx.gen.secret
       """
-
-  host = System.get_env("PHX_HOST") || "example.com"
 
   config :authx, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
@@ -173,4 +174,10 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Req
   #
   # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
+
+  System.get_env("MAILER_ADAPTER", "force-local")
+  |> case do
+    "force-local" ->
+      config :swoosh, local: true
+  end
 end

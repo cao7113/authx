@@ -6,4 +6,8 @@ defmodule Authx do
   Contexts are also responsible for managing your data, regardless
   if it comes from the database, an external API or others.
   """
+
+  def phx_host do
+    Application.get_env(:authx, :phx_host)
+  end
 end

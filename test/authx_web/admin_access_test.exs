@@ -67,24 +67,6 @@ defmodule AuthxWeb.AdminAccessTest do
     assert_redirect(dashboard_view, "/")
   end
 
-  test "dev menu is gated by development routes" do
-    html =
-      (&AuthxWeb.Layouts.site_header/1)
-      |> render_component(%{current_user: nil, dev_routes_enabled: true})
-      |> LazyHTML.from_fragment()
-
-    assert LazyHTML.attribute(html["#dev-tools-toggle"], "aria-controls") == ["dev-tools-menu"]
-
-    assert LazyHTML.attribute(html["#dev-tools-menu a"], "href") == ["/dev/mailbox"]
-
-    html =
-      (&AuthxWeb.Layouts.site_header/1)
-      |> render_component(%{current_user: nil, dev_routes_enabled: false})
-      |> LazyHTML.from_fragment()
-
-    assert Enum.empty?(html["#dev-tools"])
-  end
-
   defp create_user(email) do
     {:ok, password} = AshAuthentication.BcryptProvider.hash("password123456")
 

@@ -1,0 +1,76 @@
+<Layouts.app flash={@flash}>
+  <div
+    id="sign-in-page"
+    class="flex min-h-[calc(100vh-4.5rem)] items-start justify-center bg-[#fafbf8] px-5 py-10 text-[#18271f] sm:items-center sm:px-8 sm:py-16"
+  >
+    <div class="auth-card w-full max-w-md rounded-[1.75rem] border border-[#dfe8db] bg-white p-6 shadow-[0_20px_65px_-30px_rgba(32,70,43,0.22)] sm:p-8">
+      <div class="auth-banner mb-6 text-center">
+        <p class="text-xl font-semibold tracking-tight text-[#1d4936]">欢迎回来</p>
+      </div>
+
+      <.form for={@form} id="sign-in-form" action={~p"/auth/user/password/sign_in"} method="post">
+        <.input
+          field={@form[:email]}
+          type="email"
+          label="邮箱"
+          autocomplete="email"
+          required
+          class="mt-4 block w-full rounded-xl border border-[#d6dfd5] bg-white px-4 py-3 text-sm text-[#18271f] shadow-sm transition placeholder:text-[#a0aea2] focus:border-[#659776] focus:outline-none focus:ring-4 focus:ring-[#e5f1e2]"
+        />
+        <.input
+          field={@form[:password]}
+          type="password"
+          label="密码"
+          autocomplete="current-password"
+          required
+          class="mt-4 block w-full rounded-xl border border-[#d6dfd5] bg-white px-4 py-3 text-sm text-[#18271f] shadow-sm transition placeholder:text-[#a0aea2] focus:border-[#659776] focus:outline-none focus:ring-4 focus:ring-[#e5f1e2]"
+        />
+        <button
+          id="sign-in-submit"
+          type="submit"
+          class="mt-5 inline-flex w-full cursor-pointer items-center justify-center rounded-full bg-[#1d4936] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2f6048] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3a7053]"
+        >
+          登录
+        </button>
+      </.form>
+
+      <div class="mt-5 text-center text-sm text-[#68766b]">
+        Need an account?
+        <.link href={~p"/register"} class="font-medium text-[#578064] hover:text-[#173b2a]">注册</.link>
+        <span class="mx-2 text-[#c2ccc1]">·</span>
+        <.link
+          href={~p"/reset"}
+          id="password-reset-link"
+          class="font-medium text-[#578064] hover:text-[#173b2a]"
+        >Forgot your password?</.link>
+      </div>
+
+      <div id="magic-link-form" class="mt-6 border-t border-[#e9eee7] pt-5 text-sm">
+        <p class="mb-3 text-center text-[#68766b]">或使用 Magic Link 登录</p>
+        <.form
+          for={@magic_form}
+          id="magic-link-request-form"
+          action={~p"/auth/user/magic_link/request"}
+          method="post"
+          class="rounded-2xl bg-[#f7faf5] p-4"
+        >
+          <p class="mb-3 text-[#68766b]">输入邮箱，我们会发送一次性登录链接。</p>
+          <.input
+            field={@magic_form[:email]}
+            type="email"
+            label="邮箱"
+            autocomplete="email"
+            required
+          />
+          <button
+            id="magic-link-submit"
+            type="submit"
+            class="mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-full border border-[#9bb89e] px-5 py-3 text-sm font-semibold text-[#1d4936] transition-colors hover:bg-white"
+          >
+            发送 Magic Link
+          </button>
+        </.form>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

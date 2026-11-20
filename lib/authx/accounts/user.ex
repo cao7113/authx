@@ -6,6 +6,10 @@ defmodule Authx.Accounts.User do
     authorizers: [Ash.Policy.Authorizer],
     extensions: [AshAuthentication, AshAdmin.Resource]
 
+  @min_password_length Application.compile_env(:authx, :min_password_length, 12)
+
+  def min_password_length, do: @min_password_length
+
   admin do
     label_field :email
     table_columns [:id, :email, :role, :confirmed_at]
@@ -41,6 +45,9 @@ defmodule Authx.Accounts.User do
       password :password do
         identity_field :email
         hash_provider AshAuthentication.BcryptProvider
+
+        # https://ash-authentication.hexdocs.pm/confirmation.html#blocking-unconfirmed-users-from-logging-in
+        require_confirmed_with :confirmed_at
 
         resettable do
           sender Authx.Accounts.User.Senders.SendPasswordResetEmail
@@ -88,7 +95,7 @@ defmodule Authx.Accounts.User do
       argument :password, :string,
         sensitive?: true,
         allow_nil?: false,
-        constraints: [min_length: 8]
+        constraints: [min_length: @min_password_length]
 
       argument :password_confirmation, :string, sensitive?: true, allow_nil?: false
 
@@ -161,7 +168,7 @@ defmodule Authx.Accounts.User do
       argument :password, :string do
         description "The proposed password for the user, in plain text."
         allow_nil? false
-        constraints min_length: 8
+        constraints min_length: @min_password_length
         sensitive? true
       end
 
@@ -205,19 +212,6 @@ defmodule Authx.Accounts.User do
       get_by :email
     end
 
-    update :set_admin_role do
-      require_atomic? false
-      accept []
-      argument :role, :atom, allow_nil?: false, constraints: [one_of: [:user, :admin]]
-      change Authx.Accounts.Changes.ChangeAdminRole
-    end
-
-    update :bootstrap_admin do
-      require_atomic? false
-      accept []
-      change {Authx.Accounts.Changes.ChangeAdminRole, bootstrap?: true}
-    end
-
     update :reset_password_with_token do
       argument :reset_token, :string do
         allow_nil? false
@@ -227,7 +221,7 @@ defmodule Authx.Accounts.User do
       argument :password, :string do
         description "The proposed password for the user, in plain text."
         allow_nil? false
-        constraints min_length: 8
+        constraints min_length: @min_password_length
         sensitive? true
       end
 
@@ -285,10 +279,40 @@ defmodule Authx.Accounts.User do
 
       run AshAuthentication.Strategy.MagicLink.Request
     end
+
+    update :set_admin_role do
+      require_atomic? false
+      accept []
+      argument :role, :atom, allow_nil?: false, constraints: [one_of: [:user, :admin]]
+      change Authx.Accounts.Changes.ChangeAdminRole
+    end
+
+    update :manual_confirm do
+      require_atomic? false
+      accept []
+
+      argument :confirmed_at, :utc_datetime_usec do
+        allow_nil? false
+        default &DateTime.utc_now/0
+      end
+
+      change set_attribute(:confirmed_at, arg(:confirmed_at))
+      change Authx.Accounts.Changes.AuditManualConfirmation
+    end
+
+    update :bootstrap_admin do
+      require_atomic? false
+      accept []
+      change {Authx.Accounts.Changes.ChangeAdminRole, bootstrap?: true}
+    end
   end
 
   policies do
     policy action(:set_admin_role) do
+      authorize_if Authx.Accounts.Checks.AdminCheck
+    end
+
+    policy action(:manual_confirm) do
       authorize_if Authx.Accounts.Checks.AdminCheck
     end
 
@@ -330,6 +354,6 @@ defmodule Authx.Accounts.User do
   end
 
   identities do
-    identity :unique_email, [:email]
+      identity :unique_email, [:email]
   end
 end

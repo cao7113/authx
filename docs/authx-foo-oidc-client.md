@@ -2,6 +2,7 @@
 
 > 状态：**已审核并实施**。实现与本文档一致；后续变更请同步更新本文件。
 > 参考实现：`_local/authx-demo`（见 [OIDC client demo](client-demo.md)）。
+> Ash 依赖在客户端场景下的分工见 [authx-foo 的 Ash 相关依赖](authx-foo-ash-libraries.md)。
 
 ## 1. 目标与范围
 

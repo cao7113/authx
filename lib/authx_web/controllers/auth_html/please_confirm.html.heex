@@ -1,0 +1,49 @@
+<Layouts.app flash={@flash}>
+  <div
+    id="please-confirm-page"
+    class="flex min-h-[calc(100vh-4.5rem)] items-center justify-center bg-[#fafbf8] px-5 py-12 text-[#18271f]"
+  >
+    <div class="w-full max-w-md rounded-[1.75rem] border border-[#dfe8db] bg-white p-6 shadow-[0_20px_65px_-30px_rgba(32,70,43,0.22)] sm:p-9">
+      <div class="flex items-start gap-4 text-left">
+        <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e7f2e3] text-[#39714b]">
+          <.icon name="hero-envelope-open" class="size-5" />
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight text-[#1d4936]">确认你的邮箱</h1>
+          <p class="mt-1 text-sm leading-5 text-[#68766b]">最后一步，确认后即可登录。</p>
+        </div>
+      </div>
+      <div class="mt-7 rounded-xl border border-[#e8eee5] bg-[#fbfcfa] px-4 py-3 text-left">
+        <p class="text-xs font-medium uppercase tracking-[0.12em] text-[#8a998e]">确认邮件发送至</p>
+        <p
+          id="pending-confirmation-email"
+          class="mt-1 break-all text-base font-semibold text-[#1d4936]"
+        >
+          {to_string(@user.email)}
+        </p>
+      </div>
+      <p class="mt-4 text-left text-sm leading-6 text-[#68766b]">请查收邮件并点击确认链接。如果没有收到，可以重新发送。</p>
+
+      <.form
+        for={%{}}
+        id="resend-confirmation-form"
+        action={~p"/auth/please-confirm/resend"}
+        method="post"
+      >
+        <button
+          id="resend-confirmation-submit"
+          type="submit"
+          class="mt-7 inline-flex w-full cursor-pointer items-center justify-center rounded-full bg-[#1d4936] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2f6048]"
+        >
+          重新发送确认邮件
+        </button>
+      </.form>
+
+      <.link
+        href={~p"/sign-in"}
+        id="back-to-sign-in"
+        class="mt-5 inline-block text-sm font-medium text-[#578064] hover:text-[#173b2a]"
+      >返回登录</.link>
+    </div>
+  </div>
+</Layouts.app>

@@ -23,9 +23,7 @@ config :authx, AuthxWeb.Endpoint,
 config :swoosh, api_client: Swoosh.ApiClient.Req
 
 # Disable Swoosh Local Memory Storage
-# config :swoosh, local: false
-# todo other email service
-config :swoosh, local: true
+config :swoosh, local: false
 
 # Do not print debug messages in production
 config :logger, level: :info

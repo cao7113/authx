@@ -13,8 +13,7 @@ defmodule Authx.Accounts.User.Senders.SendNewUserConfirmationEmail do
   @impl true
   def send(user, token, opts) do
     new()
-    # TODO: Replace with your email
-    |> from({"noreply", "noreply@example.com"})
+    |> from(Mailer.from_no_reply())
     |> to(to_string(user.email))
     |> subject(subject(opts))
     |> html_body(body(token, opts))

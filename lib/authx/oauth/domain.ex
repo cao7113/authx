@@ -3,6 +3,11 @@ defmodule Authx.Oauth.Domain do
 
   admin do
     show? true
+
+    show_resources [
+      Authx.Oauth.Resources.Client,
+      Authx.Oauth.Resources.Consent
+    ]
   end
 
   resources do

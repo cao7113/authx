@@ -1,5 +1,7 @@
 import Config
 
+config :authx, :min_password_length, 3
+
 config :ash,
   policies: [show_policy_breakdowns?: true],
   keyset_signing_secret: "r+oDI00iXygmdf/s+9JqnWnUtHqZiP2xyZXr+Jk9WBQ"
@@ -74,6 +76,18 @@ config :authx,
     client_name: "Authx Foo local OIDC client",
     redirect_uri: "http://localhost:4002/auth/user/authx/callback",
     callback_env: "AUTHX_FOO_CALLBACK"
+  },
+  eim_client_app: %{
+    client_id: "00000000-0000-7000-8000-000000000003",
+    client_name: "Eim local OIDC client",
+    redirect_uri: "http://localhost:4003/auth/user/authx/callback",
+    callback_env: "AUTHX_EIM_CALLBACK"
+  },
+  eim_extension_client_app: %{
+    client_id: "00000000-0000-7000-8000-000000000004",
+    client_name: "Eim browser extension OIDC client",
+    redirect_uris: ["https://mkbjhjbecifpejjljcjbadocpfiepoen.chromiumapp.org/"],
+    callback_env: "AUTHX_EIM_EXTENSION_CALLBACK"
   },
   token_signing_secret: "v2LTXuwOk3DduqIn+gU3PF6k+Ne5MzDA",
   oauth2_issuer_url: "http://localhost:4000",

@@ -20,11 +20,16 @@ defmodule Mix.Tasks.Dev.Seed do
       shared development password.
     * `:demo_client_app` — demo client id, name and default redirect URI.
     * `:foo_client_app` — foo client id, name and default redirect URI.
+    * `:eim_client_app` — Eim web client id, name and default redirect URI.
+    * `:eim_extension_client_app` — Eim browser extension client id, name and
+      default redirect URIs.
 
   Every configured client always uses its fixed id, so local demo applications
   can be configured once. A client's redirect URI can be overridden at runtime
-  with its `:callback_env` variable (for example `AUTHX_DEMO_CALLBACK` or
-  `AUTHX_FOO_CALLBACK`).
+  with its `:callback_env` variable (for example `AUTHX_DEMO_CALLBACK`,
+  `AUTHX_FOO_CALLBACK`, `AUTHX_EIM_CALLBACK` or
+  `AUTHX_EIM_EXTENSION_CALLBACK`). Clients may configure either a single
+  `:redirect_uri` or a `:redirect_uris` list.
 
   This task is only available in the dev environment. It resets both users'
   passwords to the development fixture.
@@ -101,9 +106,13 @@ defmodule Mix.Tasks.Dev.Seed do
   end
 
   defp ensure_client!(developer, config) do
-    redirect_uri = System.get_env(callback_env(config), config.redirect_uri)
+    redirect_uris =
+      case System.get_env(callback_env(config)) do
+        nil -> Map.get(config, :redirect_uris) || config.redirect_uri
+        redirect_uri -> redirect_uri
+      end
 
-    case Clients.ensure(developer, config.client_name, redirect_uri, id: config.client_id) do
+    case Clients.ensure(developer, config.client_name, redirect_uris, id: config.client_id) do
       {:ok, client} ->
         client
 
@@ -116,7 +125,7 @@ defmodule Mix.Tasks.Dev.Seed do
   end
 
   defp client_configs do
-    [:demo_client_app, :foo_client_app]
+    [:demo_client_app, :foo_client_app, :eim_client_app, :eim_extension_client_app]
     |> Enum.flat_map(fn key ->
       case Application.fetch_env(:authx, key) do
         {:ok, config} -> [config]

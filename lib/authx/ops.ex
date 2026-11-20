@@ -32,6 +32,37 @@ defmodule Authx.Ops do
   end
 
   @doc """
+  Manually confirms a user by email, using the administrator identified by
+  `admin_email` as the actor.
+
+  `confirmed_at` defaults to the current UTC time.
+  """
+  def manual_confirm(user_email, admin_email, confirmed_at \\ DateTime.utc_now())
+      when is_binary(user_email) and is_binary(admin_email) do
+    with {:ok, admin} <- Accounts.fetch_admin_by_email(admin_email),
+         {:ok, user} <- Accounts.fetch_user_by_email(user_email),
+         {:ok, confirmed_at} <- cast_confirmed_at(confirmed_at) do
+      user
+      |> Ash.Changeset.for_update(:manual_confirm, %{confirmed_at: confirmed_at}, actor: admin)
+      |> Ash.update(actor: admin)
+    end
+  end
+
+  defp cast_confirmed_at(%DateTime{} = confirmed_at), do: {:ok, confirmed_at}
+
+  defp cast_confirmed_at(%NaiveDateTime{} = confirmed_at),
+    do: DateTime.from_naive(confirmed_at, "Etc/UTC")
+
+  defp cast_confirmed_at(confirmed_at) when is_binary(confirmed_at) do
+    case DateTime.from_iso8601(confirmed_at) do
+      {:ok, datetime, _offset} -> {:ok, datetime}
+      _ -> {:error, :invalid_confirmed_at}
+    end
+  end
+
+  defp cast_confirmed_at(_confirmed_at), do: {:error, :invalid_confirmed_at}
+
+  @doc """
   Ensures a client named `client_name` exists for the developer identified by
   `user_email`.
 

@@ -80,72 +80,28 @@ defmodule AuthxWeb.Layouts do
         </div>
 
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div :if={@dev_routes_enabled} id="dev-tools" class="nav-tools group relative">
+          <div id="tools" class="nav-tools group relative">
             <button
-              id="dev-tools-toggle"
+              id="tools-toggle"
               type="button"
               aria-expanded="false"
               aria-controls="dev-tools-menu"
               class="flex cursor-pointer items-center gap-1 rounded-md px-2 py-2 text-sm font-semibold text-[#68766b] transition-colors hover:text-[#173b2a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3a7053]"
             >
-              Dev <.icon name="hero-chevron-down" class="size-4" />
+              Tools <.icon name="hero-chevron-down" class="size-4" />
             </button>
             <div
-              id="dev-tools-menu"
+              id="tools-menu"
               class="nav-tools-menu absolute top-full right-0 z-50 hidden w-48 pt-2"
             >
               <div class="rounded-xl border border-[#dfe8db] bg-white p-1.5 shadow-lg shadow-[#1d4936]/10">
                 <a
                   href="/dev/mailbox"
+                  target="_blank"
                   class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
                 >
                   Mailbox
                 </a>
-              </div>
-            </div>
-          </div>
-          <div :if={@admin?} id="admin-tools" class="nav-tools group relative">
-            <button
-              id="admin-tools-toggle"
-              type="button"
-              aria-expanded="false"
-              aria-controls="admin-tools-menu"
-              class="flex cursor-pointer items-center gap-1 rounded-md px-2 py-2 text-sm font-semibold text-[#68766b] transition-colors hover:text-[#173b2a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3a7053]"
-            >
-              Admin <.icon name="hero-chevron-down" class="size-4" />
-            </button>
-            <div
-              id="admin-tools-menu"
-              class="nav-tools-menu absolute top-full right-0 z-50 hidden w-48 pt-2"
-            >
-              <div class="rounded-xl border border-[#dfe8db] bg-white p-1.5 shadow-lg shadow-[#1d4936]/10">
-                <.link
-                  id="admin-dashboard-link"
-                  href="/admin"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
-                >
-                  Ash Admin
-                </.link>
-                <.link
-                  id="live-dashboard-link"
-                  href={~p"/admin/dashboard"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
-                >
-                  Live Dashboard
-                </.link>
-                <.link
-                  id="oban-dashboard-link"
-                  href="/oban"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
-                >
-                  Oban
-                </.link>
               </div>
             </div>
           </div>
@@ -207,6 +163,51 @@ defmodule AuthxWeb.Layouts do
               创建账号
             </.link>
           <% end %>
+          <div :if={@admin?} id="admin-tools" class="nav-tools group relative">
+            <button
+              id="admin-tools-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="admin-tools-menu"
+              class="flex cursor-pointer items-center gap-1 rounded-md px-2 py-2 text-sm font-semibold text-[#68766b] transition-colors hover:text-[#173b2a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3a7053]"
+            >
+              Admin <.icon name="hero-chevron-down" class="size-4" />
+            </button>
+            <div
+              id="admin-tools-menu"
+              class="nav-tools-menu absolute top-full right-0 z-50 hidden w-48 pt-2"
+            >
+              <div class="rounded-xl border border-[#dfe8db] bg-white p-1.5 shadow-lg shadow-[#1d4936]/10">
+                <.link
+                  id="admin-dashboard-link"
+                  href="/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
+                >
+                  Ash Admin
+                </.link>
+                <.link
+                  id="live-dashboard-link"
+                  href={~p"/admin/dashboard"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
+                >
+                  Live Dashboard
+                </.link>
+                <.link
+                  id="oban-dashboard-link"
+                  href="/oban"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block rounded-lg px-3 py-2 text-sm text-[#415348] transition-colors hover:bg-[#eff5ed]"
+                >
+                  Oban
+                </.link>
+              </div>
+            </div>
+          </div>
         </div>
       </nav>
     </header>

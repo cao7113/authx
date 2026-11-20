@@ -4,3 +4,4 @@ alias Authx.Developers, as: Devs
 alias Authx.Oauth
 
 alias Authx.Ops
+alias Authx.Mailer

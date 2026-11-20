@@ -14,7 +14,8 @@ ID Token 的签名密钥、JWKS 发布与轮换限制见
 浏览器插件接入与业务 API 授权模型见
 [浏览器插件接入 Authx OIDC](browser-extension-oidc.md)。
 本地 demo 与 foo 的接入步骤分别见 [OIDC client demo](client-demo.md) 和
-[Authx Foo 接入 Authx OIDC](authx-foo-oidc-client.md)。
+[Authx Foo 接入 Authx OIDC](authx-foo-oidc-client.md)。Eim 作为本地 OIDC
+客户端的迁移方案见 Eim 仓库的 `docs/OIDC客户端迁移方案.md`。
 
 ## todo
 
